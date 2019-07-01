@@ -5,7 +5,8 @@ import keras
 import matplotlib.pyplot as plt
 import keras.backend as K
 import tensorflow as tf
-import keras_classes as my
+
+from . import keras_classes as my
 
 #
 # HYPOTHESIS SET
