@@ -31,6 +31,7 @@ def f4(x):
 
 #division with threshold (0.001)
 def f5(x):
+    kill_matrix = tf.cast(tf.abs(x) > 0.001, dtype=tf.float32)
     return tf.where(K.less(x,K.zeros_like(x)+0.001), K.zeros_like(x), K.pow(x,-1))
 
 #
@@ -198,7 +199,7 @@ class EQL:
         
         return X
     
-    def plotSlice(self, function, xmin, xmax, step):
+    def plotSlice(self, function, xmin, xmax, step, width = 10, height = 10, save=False):
         #x values
         X = np.asarray([ [(i * step) + xmin for j in range(int(self.inputSize))] for i in range(int((xmax - xmin)/step))])
         #goal function values
@@ -218,10 +219,10 @@ class EQL:
             'weight' : 'bold',
                 'size'   : 22}
     
-        fig, axs = plt.subplots(self.outputSize, figsize=(10,10))
-        plt.xlabel(x_axis,**font)
-        plt.ylabel('Function Values',**font)
-        fig.suptitle('Title')
+        fig, axs = plt.subplots(self.outputSize, figsize=(width,height))
+        fig.suptitle('Title', **font)
+        plt.xlabel('X-Axis', **font)
+        plt.ylabel('Y-Axis', **font)
         
         #graphing
         if self.outputSize == 1:
@@ -233,6 +234,11 @@ class EQL:
             for i in range(self.outputSize):
                 axs[i].plot(X[0], F_Y[i], color=colors[i], linewidth=2.5, linestyle='-', label='Function')
                 axs[i].plot(X[0], model_Y[i], color=colors[i], linewidth=1.5, linestyle=':', label='model')
+                
+        if save:
+            plt.savefig(self.name + '.png', bbox_inches='tight', dpi=300)
+            
+        plt.close()
     
     #percent error function
     def percentError(self, predictors, labels):
