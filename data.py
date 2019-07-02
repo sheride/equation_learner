@@ -141,35 +141,35 @@ g = 9.8 #acc. due to gravity
 #label function 
 def doublePendulumDerivatives(x):
     return [
-                x[1],
+                x[1] / 10,
                 (
                     -1*(x[1]**2)*np.sin(x[0] - x[2])*np.cos(x[0] - x[2]) 
                     +g * np.sin(x[2]) * np.cos(x[0] - x[2]) 
                     + -1 * (x[3]**2) * np.sin(x[0] - x[2]) 
                     + -1 * 2 * g * np.sin(x[0])
                 ) / (
-                    2 - ((np.cos(x[0] - x[2]))**2)
+                    (2 - ((np.cos(x[0] - x[2]))**2)) * 10
                 ), 
-                x[3], 
+                x[3] / 10, 
                 (
                     (x[3]**2)*np.sin(x[0] - x[2])*np.cos(x[0] - x[2]) 
                     +g * 2 * np.sin(x[0]) * np.cos(x[0] - x[2]) 
                     +2 * x[1]**2 * np.sin(x[0] - x[2]) 
                     + -1*2 * g * np.sin(x[2])
                 ) / (
-                    2 - (np.cos(x[0] - x[2]))**2
+                    (2 - (np.cos(x[0] - x[2]))**2) * 10
                 )
            ]
 
 def genDoublePendulumDiffEqData(w, n):
     training_predictors = [ [ genNum(np.pi),genNum(w),genNum(np.pi),genNum(w) ] for i in range(n) ]
-    training_labels = [ (np.asarray(doublePendulumDerivatives(0,training_predictors[i])) / 10) for i in range(n) ]
+    training_labels = [ (np.asarray(doublePendulumDerivatives(training_predictors[i]))) for i in range(n) ]
     interpolation_predictors = [[genNum(np.pi),genNum(w),genNum(np.pi),genNum(w)] for i in range(n)]
-    interpolation_labels = [ (np.asarray(doublePendulumDerivatives(0,interpolation_predictors[i])) / 10) for i in range(n) ]
+    interpolation_labels = [ (np.asarray(doublePendulumDerivatives(interpolation_predictors[i]))) for i in range(n) ]
     extrapolation_near_predictors = [ [genNum(w/4)+genSign()*(5*w/4),genNum(w/4)+genSign()*(5*w/4),genNum(w/4)+genSign()*(5*w/4),genNum(w/4)+genSign()*(5*w/4)] for i in range(n)]
-    extrapolation_near_labels = [ (np.asarray(doublePendulumDerivatives(0,extrapolation_near_predictors[i])) / 10) for i in range(n) ]
+    extrapolation_near_labels = [ (np.asarray(doublePendulumDerivatives(extrapolation_near_predictors[i]))) for i in range(n) ]
     extrapolation_far_predictors = [ [genNum(w/2)+genSign()*(3*w/2),genNum(w/2)+genSign()*(3*w/2),genNum(w/2)+genSign()*(3*w/2),genNum(w/2)+genSign()*(3*w/2)] for i in range(n)]
-    extrapolation_far_labels = [ (np.asarray(doublePendulumDerivatives(0,extrapolation_far_predictors[i])) / 10) for i in range(n) ]
+    extrapolation_far_labels = [ (np.asarray(doublePendulumDerivatives(extrapolation_far_predictors[i]))) for i in range(n) ]
     all_data = [training_predictors, training_labels, interpolation_predictors, interpolation_labels, extrapolation_near_predictors, extrapolation_near_labels, extrapolation_far_predictors, extrapolation_far_labels]
     for i in range(len(all_data)):
         all_data[i] = np.asarray(all_data[i])

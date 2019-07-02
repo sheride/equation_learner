@@ -211,7 +211,7 @@ class EQL:
         X = np.transpose(X)
         
         #graph colors
-        colors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'black', 'pink']
+        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink']
         
         #creating subplots
         x_axis = 'x1 = ... = x' + str(self.outputSize)
@@ -348,33 +348,33 @@ class EQLDIV:
             # Compilation
         self.model.compile(optimizer=optimizer, loss='mse', metrics=[EQL.rmse])
 
-        def fit(self, predictors, labels, numEpoch, regStrength, batchSize = 20, normThreshold = 0.001, verbose = 0):            
-            dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(epoch+1)))
+    def fit(self, predictors, labels, numEpoch, regStrength, batchSize = 20, normThreshold = 0.001, verbose = 0):            
+        dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(epoch+1)))
+        
+        # PHASE 1: NO REGULARIZATION
+        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/4)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold]) #first training: T/4
+                    
+        dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(int(numEpoch*(1/4))+numEpoch+1)))
+        
+        # PHASE 2: REGULARIZATION
+        for i in range(1,len(self.model.layers),2): #iterates over layers
+            K.set_value(self.model.layers[i].kernel_regularizer.l1, regStrength) #updates weight regularization
+            K.set_value(self.model.layers[i].bias_regularizer.l1, regStrength) #updates bias regularization
+            self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold]) #second training: 7T/10
+                            
+        dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(int(numEpoch*(1/4))+int(numEpoch*(7/10))+numEpoch+1)))
             
-            # PHASE 1: NO REGULARIZATION
-            self.model.fit(predictors, labels, epochs=int(numEpoch*(1/4)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold]) #first training: T/4
-                        
-            dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(int(numEpoch*(1/4))+numEpoch+1)))
-            
-            # PHASE 2: REGULARIZATION
-            for i in range(1,len(self.model.layers),2): #iterates over layers
-                K.set_value(self.model.layers[i].kernel_regularizer.l1, regStrength) #updates weight regularization
-                K.set_value(self.model.layers[i].bias_regularizer.l1, regStrength) #updates bias regularization
-                self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold]) #second training: 7T/10
-                                
-            dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(int(numEpoch*(1/4))+int(numEpoch*(7/10))+numEpoch+1)))
-                
-            # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION
-            for i in range(1,len(self.model.layers),2): #iterates over linear layers
-                K.set_value(self.model.layers[i].kernel_regularizer.l1, 0) #updates weight regularization
-                K.set_value(self.model.layers[i].bias_regularizer.l1, 0) #updates bias regularization
-                weight, bias = self.model.layers[i].get_weights()
-                K.set_value(self.model.layers[i].kernel_constraint.toZero, np.less(np.abs(weight), np.full(weight.shape, normThreshold)))
-                K.set_value(self.model.layers[i].bias_constraint.toZero, np.less(np.abs(bias), np.full(bias.shape, normThreshold)))
-            
-            self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)), batch_size=batchSize, verbose=verbose, callbacks=[tensorboard, dynamicThreshold]) #third training: T/20
+        # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION
+        for i in range(1,len(self.model.layers),2): #iterates over linear layers
+            K.set_value(self.model.layers[i].kernel_regularizer.l1, 0) #updates weight regularization
+            K.set_value(self.model.layers[i].bias_regularizer.l1, 0) #updates bias regularization
+            weight, bias = self.model.layers[i].get_weights()
+            K.set_value(self.model.layers[i].kernel_constraint.toZero, np.less(np.abs(weight), np.full(weight.shape, normThreshold)))
+            K.set_value(self.model.layers[i].bias_constraint.toZero, np.less(np.abs(bias), np.full(bias.shape, normThreshold)))
+        
+        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold]) #third training: T/20
 
-            K.set_value(self.model.layers[self.numLayers*2].threshold, 0.001)
+        K.set_value(self.model.layers[self.numLayers*2].threshold, 0.001)
 
     def evaluate(self, predictors, labels, batchSize = 10, verbose = 0):
         return self.model.evaluate(predictors, labels, batch_size = batchSize, verbose=verbose)[1]
@@ -451,7 +451,7 @@ class EQLDIV:
 
         return X
     
-    def plotSlice(self, function, xmin, xmax, step):
+    def plotSlice(self, function, xmin, xmax, step, width = 10, height = 10, save=False):
         #x values
         X = np.asarray([ [(i * step) + xmin for j in range(int(self.inputSize))] for i in range(int((xmax - xmin)/step))])
         #goal function values
@@ -463,13 +463,18 @@ class EQLDIV:
         X = np.transpose(X)
         
         #graph colors
-        colors = ['red', 'blue', 'green', 'yellow', 'orange', 'purple', 'black', 'pink']
+        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink']
         
         #creating subplots
-        fig, axs = plt.subplots(self.outputSize, figsize=(10,10))
-        fig.suptitle('Title')
-        
-        print(X.shape, F_Y.shape, model_Y.shape)
+        x_axis = 'x1 = ... = x' + str(self.outputSize)
+        font = {'family' : 'normal',
+            'weight' : 'bold',
+                'size'   : 22}
+    
+        fig, axs = plt.subplots(self.outputSize, figsize=(width,height))
+        fig.suptitle('Title', **font)
+        plt.xlabel('X-Axis', **font)
+        plt.ylabel('Y-Axis', **font)
         
         #graphing
         if self.outputSize == 1:
@@ -481,17 +486,31 @@ class EQLDIV:
             for i in range(self.outputSize):
                 axs[i].plot(X[0], F_Y[i], color=colors[i], linewidth=2.5, linestyle='-', label='Function')
                 axs[i].plot(X[0], model_Y[i], color=colors[i], linewidth=1.5, linestyle=':', label='model')
+                
+        if save:
+            plt.savefig(self.name + str(np.random.randint(100)) + '.png', bbox_inches='tight', dpi=300)
+            
+        plt.close()
 
     #percent error function
     def percentError(self, predictors, labels):
         error = [0 for i in range(self.outputSize)]
-        for i in range(len(predictors)):
-            for j in range(len(error)):
+        
+        if self.outputSize == 1:
+            for i in range(len(predictors)):
                 sample = np.reshape(predictors[i],(1,self.inputSize))
-                error[j] += ( np.abs(self.model.predict(sample)[0][j] - labels[i][j]) / abs(labels[i][j]))
+                error[0] += ( np.abs(self.model.predict(sample)[0][0] - labels[i]) / abs(labels[i]))
             for i in range(len(error)):
                 error[i] *= (100 / len(labels))
-            return error
+        else:
+            for i in range(len(predictors)):
+                for j in range(len(error)):
+                    sample = np.reshape(predictors[i],(1,self.inputSize))
+                    error[j] += ( np.abs(self.model.predict(sample)[0][j] - labels[i][j]) / abs(labels[i][j]))
+                for i in range(len(error)):
+                    error[i] *= (100 / len(labels))
+        
+        return error
     
     def sparsity(self, minMag = 0.01):
         #list of lists where ith element is list containing activity (in the form of binary value) of outputs of ith layer
@@ -513,17 +532,17 @@ class EQLDIV:
                 if abs(self.model.get_weights()[i+1][j]) > minMag:
                     layerSparsity[int(i/2)][j] = 1 #if bias surpasses minimum magnitude, output is active
     
-        #handling binary units in nonlinear layers where necessary
-        if i != len(self.model.get_weights()) - 2: #if not last layer (which has no nonlinear component)
-            for j in range(self.nonlinearInfo[int(i/2)][1]): #active if both units active
-                layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + j] = layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + 2*j] * layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + 2*j +1]
-            del layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + self.nonlinearInfo[int(i/2)][1]:] #get rid of old values now
-            
-        #handling division layer
-        if i == len(self.model.get_weights()) - 2: #if last layer (i.e. has division component)
-            for j in range(len(layerSparsity[int(i/2)])): #active if both units active
-                layerSparsity[int(i/2)][j] = layerSparsity[int(i/2)][2*j] * layerSparsity[int(i/2)][2*j + 1]
-            del layerSparsity[int(i/2)][int(len(layerSparsity[int(i/2)])/2):] #get rid of old values now
+            #handling binary units in nonlinear layers where necessary
+            if i != len(self.model.get_weights()) - 2: #if not last layer (which has no nonlinear component)
+                for j in range(self.nonlinearInfo[int(i/2)][1]): #active if both units active
+                    layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + j] = layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + 2*j] * layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + 2*j +1]
+                del layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + self.nonlinearInfo[int(i/2)][1]:] #get rid of old values now
+                
+            #handling division layer
+            if i == len(self.model.get_weights()) - 2: #if last layer (i.e. has division component)
+                for j in range(int(len(layerSparsity[int(i/2)])/2)): #active if both units active
+                    layerSparsity[int(i/2)][j] = layerSparsity[int(i/2)][2*j] * layerSparsity[int(i/2)][2*j + 1]
+                del layerSparsity[int(i/2)][int(len(layerSparsity[int(i/2)])/2):] #get rid of old values now
     
     
         return sum([item for sublist in layerSparsity for item in sublist]) # return sum of flattened layerSparsity list (number of active oututs)
