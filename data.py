@@ -111,7 +111,7 @@ def Function1(x):
 
 # F-2 from paper
 def Function2(x):
-    return (1/3) * ( np.sin(np.pi * x[0]) + x[1] * np.sin(2 * np.pi * x[0] + (np.pi/4)) + x[2] - x[3]**2 )
+    return (1/3) * ( np.sin(np.pi * x[0]) + x[1] * np.cos(2 * np.pi * x[0] + (np.pi/4)) + x[2] - x[3]**2 )
 
 # F-3 from paper
 def Function3(x):
@@ -190,27 +190,27 @@ def NLatticeDerivatives(t,x):
     z = [0,0]
     z.extend(x)
     z.extend([0,0])
-    return [ z[i+1] if i % 2 == 0 else (1/m[int((i-1)/2) - 1]) * ( k[int((i-1)/2) - 1] * z[i-3] - ( k[int((i+1)/2) - 1] + k[int((i+1)/2) - 1] ) * z[i-1] + k[int((i+1)/2) - 1] * z[i+1] ) for i in range(2,len(z)-2) ]            
+    return [ z[i+1] if i % 2 == 0 else (.1 / m[int((i-1)/2) - 1]) * ( k[int((i-1)/2) - 1] * z[i-3] - ( k[int((i+1)/2) - 1] + k[int((i+1)/2) - 1] ) * z[i-1] + k[int((i+1)/2) - 1] * z[i+1] ) for i in range(2,len(z)-2) ]            
 
 #even indices pos, odd inices vel
 def NLatticeDerivativesSimple(x):
     z = [0,0]
     z.extend(x)
     z.extend([0,0])
-    return [ z[i+1] if i % 2 == 0 else (1/m[int((i-1)/2) - 1]) * ( k[int((i-1)/2) - 1] * z[i-3] - ( k[int((i+1)/2) - 1] + k[int((i+1)/2) - 1] ) * z[i-1] + k[int((i+1)/2) - 1] * z[i+1] ) for i in range(2,len(z)-2) ]            
+    return [ z[i+1] if i % 2 == 0 else (.1/m[int((i-1)/2) - 1]) * ( k[int((i-1)/2) - 1] * z[i-3] - ( k[int((i+1)/2) - 1] + k[int((i+1)/2) - 1] ) * z[i-1] + k[int((i+1)/2) - 1] * z[i+1] ) for i in range(2,len(z)-2) ]            
 
 
 def gen4LatticeDiffEqData(w, n):
     training_predictors = [ [ genNum(w),genNum(w),genNum(w),genNum(w),genNum(w),genNum(w),genNum(w),genNum(w) ] for i in range(n) ]
-    training_labels = [ (np.asarray(NLatticeDerivatives(0,training_predictors[i])) / 10) for i in range(n) ]
+    training_labels = [ (np.asarray(NLatticeDerivatives(0,training_predictors[i]))) for i in range(n) ]
     
     interpolation_predictors = [[genNum(w),genNum(w),genNum(w),genNum(w),genNum(w),genNum(w),genNum(w),genNum(w)] for i in range(n)]
-    interpolation_labels = [ (np.asarray(NLatticeDerivatives(0,interpolation_predictors[i])) / 10) for i in range(n) ]
+    interpolation_labels = [ (np.asarray(NLatticeDerivatives(0,interpolation_predictors[i]))) for i in range(n) ]
     
     extrapolation_near_predictors = [ [genNum(w/4)+genSign()*(5*w/4),genNum(w/4)+genSign()*(5*w/4),genNum(w/4)+genSign()*(5*w/4),genNum(w/4)+genSign()*(5*w/4),genNum(w/4)+genSign()*(5*w/4),genNum(w/4)+genSign()*(5*w/4),genNum(w/4)+genSign()*(5*w/4),genNum(w/4)+genSign()*(5*w/4)] for i in range(n)]
-    extrapolation_near_labels = [ (np.asarray(NLatticeDerivatives(0,extrapolation_near_predictors[i])) / 10) for i in range(n) ]
+    extrapolation_near_labels = [ (np.asarray(NLatticeDerivatives(0,extrapolation_near_predictors[i]))) for i in range(n) ]
     extrapolation_far_predictors = [ [genNum(w/2)+genSign()*(3*w/2),genNum(w/2)+genSign()*(3*w/2),genNum(w/2)+genSign()*(3*w/2),genNum(w/2)+genSign()*(3*w/2),genNum(w/2)+genSign()*(3*w/2),genNum(w/2)+genSign()*(3*w/2),genNum(w/2)+genSign()*(3*w/2),genNum(w/2)+genSign()*(3*w/2)] for i in range(n)]
-    extrapolation_far_labels = [ (np.asarray(NLatticeDerivatives(0,extrapolation_far_predictors[i])) / 10) for i in range(n) ]
+    extrapolation_far_labels = [ (np.asarray(NLatticeDerivatives(0,extrapolation_far_predictors[i]))) for i in range(n) ]
     all_data = [training_predictors, training_labels, interpolation_predictors, interpolation_labels, extrapolation_near_predictors, extrapolation_near_labels, extrapolation_far_predictors, extrapolation_far_labels]
     for i in range(len(all_data)):
         all_data[i] = np.asarray(all_data[i])

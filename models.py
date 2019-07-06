@@ -31,7 +31,6 @@ def f4(x):
 
 #division with threshold (0.001)
 def f5(x):
-    kill_matrix = tf.cast(tf.abs(x) > 0.001, dtype=tf.float32)
     return tf.where(K.less(x,K.zeros_like(x)+0.001), K.zeros_like(x), K.pow(x,-1))
 
 #
@@ -64,7 +63,8 @@ class EQL:
         
         with tf.name_scope(self.name) as scope:
             #using hypothesis set and unary layer widths to set up the unary functions
-            self.unaryFunctions = [ np.random.randint(len(hypothesisSet),size=(self.nonlinearInfo[i][0])) for i in range(numLayers-1) ]
+            #self.unaryFunctions = [ np.random.randint(len(hypothesisSet),size=(self.nonlinearInfo[i][0])) for i in range(numLayers-1) ]
+            self.unaryFunctions = [ [j % len(hypothesisSet) for j in self.nonlinearInfo[i][0]] for i in range(numLayers-1) ]
             
             #input layer
             self.layers[0] = keras.engine.input_layer.Input((inputSize,), name='input')
@@ -211,10 +211,9 @@ class EQL:
         X = np.transpose(X)
         
         #graph colors
-        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink']
+        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink', 'brown']
         
         #creating subplots
-        x_axis = 'x1 = ... = x' + str(self.outputSize)
         font = {'family' : 'normal',
             'weight' : 'bold',
                 'size'   : 22}
@@ -223,6 +222,8 @@ class EQL:
         fig.suptitle('Title', **font)
         plt.xlabel('X-Axis', **font)
         plt.ylabel('Y-Axis', **font)
+        axs.tick_params(axis='both', which='major', labelsize=18)
+        axs.tick_params(axis='both', which='minor', labelsize=18)
         
         #graphing
         if self.outputSize == 1:
@@ -298,9 +299,10 @@ class EQLDIV:
         self.name = name #tensorflow name for model
         
         with tf.name_scope(self.name) as scope:
-            self.unaryFunctions = [ np.random.randint(len(hypothesisSet),size=(self.nonlinearInfo[i][0])) for i in range(numLayers-1) ]
+            #self.unaryFunctions = [ np.random.randint(len(hypothesisSet),size=(self.nonlinearInfo[i][0])) for i in range(numLayers-1) ]
+            self.unaryFunctions = [ [ j % len(hypothesisSet) for j in range(self.nonlinearInfo[i][0]) ] for i in range(self.numLayers-1) ]
             
-            self.layers[0] = keras.engine.input_layer.Input((inputSize,), name='input')
+            self.layers[0] = keras.engine.input_layer.Input((self.inputSize,), name='input')
             
             with tf.name_scope('layers') as scope:
                 
@@ -463,10 +465,9 @@ class EQLDIV:
         X = np.transpose(X)
         
         #graph colors
-        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink']
+        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink', 'brown']
         
         #creating subplots
-        x_axis = 'x1 = ... = x' + str(self.outputSize)
         font = {'family' : 'normal',
             'weight' : 'bold',
                 'size'   : 22}
@@ -475,6 +476,8 @@ class EQLDIV:
         fig.suptitle('Title', **font)
         plt.xlabel('X-Axis', **font)
         plt.ylabel('Y-Axis', **font)
+        axs.tick_params(axis='both', which='major', labelsize=18)
+        axs.tick_params(axis='both', which='minor', labelsize=18)
         
         #graphing
         if self.outputSize == 1:
