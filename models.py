@@ -123,6 +123,7 @@ class EQL:
         for i in range(1,len(self.model.layers),2): #iterates over layers
             K.set_value(self.model.layers[i].kernel_regularizer.l1, regStrength) #updates weight regularization
             K.set_value(self.model.layers[i].bias_regularizer.l1, regStrength) #updates bias regularization
+        
         self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)), batch_size=batchSize, verbose=verbose) #second training: 7T/10
         
         # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION
@@ -299,8 +300,10 @@ class EQLDIV:
         self.name = name #tensorflow name for model
         
         with tf.name_scope(self.name) as scope:
-            #self.unaryFunctions = [ np.random.randint(len(hypothesisSet),size=(self.nonlinearInfo[i][0])) for i in range(numLayers-1) ]
             self.unaryFunctions = [ [ j % len(hypothesisSet) for j in range(self.nonlinearInfo[i][0]) ] for i in range(self.numLayers-1) ]
+            
+            #print(self.nonlinearInfo)
+            #print(self.unaryFunctions)
             
             self.layers[0] = keras.engine.input_layer.Input((self.inputSize,), name='input')
             
@@ -352,17 +355,20 @@ class EQLDIV:
 
     def fit(self, predictors, labels, numEpoch, regStrength, batchSize = 20, normThreshold = 0.001, verbose = 0):            
         dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(epoch+1)))
-        
+                
         # PHASE 1: NO REGULARIZATION
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/4)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold]) #first training: T/4
                     
+        #print(self.model.get_weights())
+        
         dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(int(numEpoch*(1/4))+numEpoch+1)))
         
         # PHASE 2: REGULARIZATION
         for i in range(1,len(self.model.layers),2): #iterates over layers
             K.set_value(self.model.layers[i].kernel_regularizer.l1, regStrength) #updates weight regularization
             K.set_value(self.model.layers[i].bias_regularizer.l1, regStrength) #updates bias regularization
-            self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold]) #second training: 7T/10
+            
+        self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold]) #second training: 7T/10
                             
         dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(int(numEpoch*(1/4))+int(numEpoch*(7/10))+numEpoch+1)))
             
@@ -476,8 +482,8 @@ class EQLDIV:
         fig.suptitle('Title', **font)
         plt.xlabel('X-Axis', **font)
         plt.ylabel('Y-Axis', **font)
-        axs.tick_params(axis='both', which='major', labelsize=18)
-        axs.tick_params(axis='both', which='minor', labelsize=18)
+        #axs.tick_params(axis='both', which='major', labelsize=18)
+        #axs.tick_params(axis='both', which='minor', labelsize=18)
         
         #graphing
         if self.outputSize == 1:

@@ -58,7 +58,7 @@ class NonLinearMap(Layer):
 
         # combining unary, binary outputs
         nonLinOutput = tf.concat([unaryOutput,binaryOutput],1)  #concatenating unary, binary
-        nonLinOutput = tf.reshape(nonLinOutput,(-1,u+v)) #reshaping to proper form: ()
+        nonLinOutput = tf.reshape(nonLinOutput,(-1,u+v)) #reshaping to proper form
         
         #print(nonLinOutput.eval(session=K.get_session()))
         return nonLinOutput
@@ -122,6 +122,7 @@ class ConstantL0Norm(keras.constraints.Constraint):
         #print(self.toZero.shape, K.zeros_like(w).shape, w.shape)
         return tf.where(self.toZero, K.zeros_like(w), w)
         #^^replaces weights matrix entries with original value if greater than threshold, zero otherwise
+        
 #
 # CUSTOM KERAS REGULARIZATION CLASS (EQLDIV NEGATIVE DENOMINATOR PENALTY)
 #
