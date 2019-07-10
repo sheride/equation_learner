@@ -141,23 +141,46 @@ g = 9.8 #acc. due to gravity
 #label function 
 def doublePendulumDerivatives(x):
     return [
-                x[1] / 10,
+                x[1],
                 (
                     -1*(x[1]**2)*np.sin(x[0] - x[2])*np.cos(x[0] - x[2]) 
                     +g * np.sin(x[2]) * np.cos(x[0] - x[2]) 
                     + -1 * (x[3]**2) * np.sin(x[0] - x[2]) 
                     + -1 * 2 * g * np.sin(x[0])
                 ) / (
-                    (2 - ((np.cos(x[0] - x[2]))**2)) * 10
+                    (2 - ((np.cos(x[0] - x[2]))**2))
                 ), 
-                x[3] / 10, 
+                x[3], 
                 (
                     (x[3]**2)*np.sin(x[0] - x[2])*np.cos(x[0] - x[2]) 
                     +g * 2 * np.sin(x[0]) * np.cos(x[0] - x[2]) 
                     +2 * x[1]**2 * np.sin(x[0] - x[2]) 
                     + -1*2 * g * np.sin(x[2])
                 ) / (
-                    (2 - (np.cos(x[0] - x[2]))**2) * 10
+                    (2 - (np.cos(x[0] - x[2]))**2)
+                )
+           ]
+    
+#label function 
+def doublePendulumDerivativesSolveIVP(t,x):
+    return [
+                x[1],
+                (
+                    -1*(x[1]**2)*np.sin(x[0] - x[2])*np.cos(x[0] - x[2]) 
+                    +g * np.sin(x[2]) * np.cos(x[0] - x[2]) 
+                    + -1 * (x[3]**2) * np.sin(x[0] - x[2]) 
+                    + -1 * 2 * g * np.sin(x[0])
+                ) / (
+                    (2 - ((np.cos(x[0] - x[2]))**2))
+                ), 
+                x[3], 
+                (
+                    (x[3]**2)*np.sin(x[0] - x[2])*np.cos(x[0] - x[2]) 
+                    +g * 2 * np.sin(x[0]) * np.cos(x[0] - x[2]) 
+                    +2 * x[1]**2 * np.sin(x[0] - x[2]) 
+                    + -1*2 * g * np.sin(x[2])
+                ) / (
+                    (2 - (np.cos(x[0] - x[2]))**2)
                 )
            ]
 
