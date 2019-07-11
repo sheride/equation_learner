@@ -13,7 +13,6 @@ from scipy.integrate import solve_ivp as slv
 # SINGLE PENDULUM DATA GENERATION
 #
 
-
 #Pendulum data parameters
 h = 2 #hypercube dimensions
 dataPoints = 1000 #number of data points per test/training set

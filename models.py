@@ -1,21 +1,20 @@
 from __future__ import division
-
-import sympy
 import numpy as np
-import keras
+import sympy
 import matplotlib.pyplot as plt
-import keras.backend as K
 import tensorflow as tf
+import keras
+import keras.backend as K
 from keras.initializers import RandomNormal as RandNorm
 from keras.engine.input_layer import Input
 from keras.layers import Dense
-
+from keras.callbacks import LambdaCallback as LambCall
 from . import keras_classes as my
 
-#
-# SAMPLE HYPOTHESIS SET FUNCTIONS
-#
+"""
+Hypothesis Set Functions
 
+"""
 
 # identity map
 def f1(x):
@@ -43,9 +42,10 @@ def f5(x):
                     K.zeros_like(x),
                     K.pow(x, -1))
 
-#
-# EQL KERAS MODEL
-#
+"""
+EQL/EQL-div Helper Functions
+
+"""
 
 def getNonlinearInfo(numHiddenLayers, numBinary, unaryPerBinary):
     nonlinearInfo = [0 for i in range(numHiddenLayers)]
@@ -58,6 +58,16 @@ def getNonlinearInfo(numHiddenLayers, numBinary, unaryPerBinary):
 # Root mean squared loss
 def rmse(y_true, y_pred):
     return K.sqrt(K.mean(K.square(y_pred - y_true)))
+
+# NOT MINE: function for making n x m matrix of symbols
+def make_symbolic(n, m):
+    rows = []
+    for i in range(n):
+        col = []
+        for j in range(m):
+            col.append(sympy.Symbol('x%d' % (j+1)))
+        rows.append(col)
+    return sympy.Matrix(rows)
 
 class EQL:
 
@@ -85,10 +95,14 @@ class EQL:
         name: TensorFlow scope name (for TensorBoard)
         
     # References
-        - [First Paper]
+        - [Extrapolation and learning equations](
+           https://arxiv.org/abs/1610.02995)
+        
     """
+    
     def __init__(self, inputSize, outputSize, numLayers, hypothesisSet,
                  nonlinearInfo, learningRate=0.01, name='EQL'):
+
         self.inputSize = inputSize
         self.outputSize = outputSize
         self.numLayers = numLayers
@@ -97,85 +111,89 @@ class EQL:
         self.nonlinearInfo = nonlinearInfo
         self.learningRate = learningRate
         self.name = name
+
         with tf.name_scope(self.name) as scope:
-            self.unaryFunctions = [[j % len(hypothesisSet) for j in self.nonlinearInfo[i][0]] for i in range(numLayers-1)]
+            self.unaryFunctions = [[j % len(hypothesisSet) for j in range(self.nonlinearInfo[i][0])] for i in range(numLayers-1)]
             self.layers[0] = Input((inputSize,), name='input')
 
-            with tf.name_scope('layers') as scope:  
-                # Create all hidden layers (linear and nonlinear components)
-                for i in range(1, (self.numLayers-1)*2, 2):
-                    # Size of input to layer
-                    linIn = int(self.layers[i-1].shape[1])
-                    # Unary, binary width of layer
-                    u, v = self.nonlinearInfo[int((i-1)/2)]
-                    # Dense/linear component of layer 'i'
-                    stddev = np.sqrt(1 / (linIn * (u + 2 * v)))  #std. dev. of dist. for starting weight values
-                    randNorm = RandNorm(0, stddev=stddev, seed=2000)
-                    self.layers[i] = Dense(u + 2 * v,
-                                           kernel_initializer=randNorm,
-                                           bias_initializer='zeros',
-                                           kernel_regularizer=my.CustomizedWeightRegularizer(0),
-                                           bias_regularizer=my.CustomizedWeightRegularizer(0),
-                                           kernel_constraint=my.ConstantL0Norm(tf.cast(K.zeros((linIn, u + 2 * v)), tf.bool)),
-                                           bias_constraint=my.ConstantL0Norm(tf.cast(K.zeros((self.nonlinearInfo[int((i-1)/2)][0] + 2 * self.nonlinearInfo[int((i-1)/2)][1])), tf.bool)),
-                                           name='linear'+str(int((i+1)/2)))(self.layers[i-1])  # creates the layer
+            # Create all hidden layers (linear and nonlinear components)
+            for i in range(1, (self.numLayers-1)*2, 2):
+                # Size of input to layer
+                linIn = int(self.layers[i-1].shape[1])
+                # Unary, binary width of layer
+                u, v = self.nonlinearInfo[int((i-1)/2)]
+                # Dense/linear component of layer 'i'
+                stddev = np.sqrt(1 / (linIn * (u + 2 * v)))  #std. dev. of dist. for starting weight values
+                randNorm = RandNorm(0, stddev=stddev, seed=2000)
+                self.layers[i] = Dense(u + 2 * v,
+                                       kernel_initializer=randNorm,
+                                       bias_initializer='zeros',
+                                       kernel_regularizer=my.dynamReg(0),
+                                       bias_regularizer=my.dynamReg(0),
+                                       kernel_constraint=my.ConstL0(tf.cast(K.zeros((linIn, u + 2 * v)), tf.bool)),
+                                       bias_constraint=my.ConstL0(tf.cast(K.zeros((self.nonlinearInfo[int((i-1)/2)][0] + 2 * self.nonlinearInfo[int((i-1)/2)][1])), tf.bool)),
+                                       name='linear'+str(int((i+1)/2)))(self.layers[i-1])  # creates the layer
 
-                    # Non-linear component of layer 'i'
-                    self.layers[i+1] = my.NonLinearMap(self.nonlinearInfo[int((i-1)/2)],
-                                                       self.hypothesisSet,
-                                                       self.unaryFunctions[int((i-1)/2)],
-                                                       name='nonlinear'+str(int((i+1)/2)))(self.layers[i])
-                # Final layer
-                stddev = np.sqrt(1 / (self.outputSize * int(self.layers[self.numLayers*2-2].shape[1])))  # std. dev. of dist. for starting weight values
-                randNorm = RandNorm(0, stddev=stddev, seed=2000)  # dist. for starting weight values
-                self.layers[numLayers*2-1] = Dense(self.outputSize, 
+                # Non-linear component of layer 'i'
+                self.layers[i+1] = my.Nonlinear(self.nonlinearInfo[int((i-1)/2)],
+                                                self.hypothesisSet,
+                                                self.unaryFunctions[int((i-1)/2)],
+                                                name='nonlinear'+str(int((i+1)/2)))(self.layers[i])
+            # Final layer
+            stddev = np.sqrt(1 / (self.outputSize * int(self.layers[self.numLayers*2-2].shape[1])))  # std. dev. of dist. for starting weight values
+            randNorm = RandNorm(0, stddev=stddev, seed=2000)  # dist. for starting weight values
+            self.layers[numLayers * 2 - 1] = Dense(self.outputSize, 
                                                    kernel_initializer=randNorm,
                                                    bias_initializer='zeros',
-                                                   kernel_regularizer=my.CustomizedWeightRegularizer(0),
-                                                   bias_regularizer=my.CustomizedWeightRegularizer(0),
-                                                   kernel_constraint = my.ConstantL0Norm( tf.cast(K.zeros((int(self.layers[numLayers*2-2].shape[1]),self.outputSize)), tf.bool )),
-                                                   bias_constraint = my.ConstantL0Norm( tf.cast(K.zeros((self.outputSize,)), tf.bool) ),
+                                                   kernel_regularizer=my.dynamReg(0),
+                                                   bias_regularizer=my.dynamReg(0),
+                                                   kernel_constraint = my.ConstL0(tf.cast(K.zeros((int(self.layers[numLayers*2-2].shape[1]),self.outputSize)), tf.bool )),
+                                                   bias_constraint = my.ConstL0(tf.cast(K.zeros((self.outputSize,)), tf.bool) ),
                                                    name='linear'+str(self.numLayers))(self.layers[self.numLayers*2-2])  # creates the layer
-        # Optimizer
-        optimizer = keras.optimizers.Adam(lr=self.learningRate)
 
-        # Model
-        self.model = keras.Model(inputs=self.layers[0], outputs=self.layers[self.numLayers*2-1])
+            # Optimizer
+            optimizer = keras.optimizers.Adam(lr=self.learningRate)
+    
+            # Model
+            self.model = keras.Model(inputs=self.layers[0], 
+                                     outputs=self.layers[self.numLayers*2-1])
+    
+            # Compilation
+            self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
 
-        # Compilation
-        self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
+    def fit(self, predictors, labels, numEpoch, reg, batchSize=20, 
+            threshold=0.1, verbose=0):
+        # PHASE 1: NO REGULARIZATION (T/4)
+        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/4)), 
+                       batch_size=batchSize, verbose=verbose)
 
-    def fit(self, predictors, labels, numEpoch, regStrength, batchSize=20, threshold=0.1, verbose=0):
-        # creating the tensorboard
-        # tensorboard = keras.callbacks.TensorBoard(log_dir='./EQLGraph', histogram_freq=0, write_graph=True, write_images=True) #Creating tensorboard visualization object
-        # PHASE 1: NO REGULARIZATION
-        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/4)), batch_size=batchSize, verbose=verbose) #first training: T/4
-        # PHASE 2: REGULARIZATION
-        for i in range(1, len(self.model.layers) ,2):  # iterates over layers
-            K.set_value(self.model.layers[i].kernel_regularizer.l1, regStrength)  # updates weight regularization
-            K.set_value(self.model.layers[i].bias_regularizer.l1, regStrength)  # updates bias regularization
-        self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)), batch_size=batchSize, verbose=verbose)  # second training: 7T/10
-        # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION
-        for i in range(1, len(self.model.layers), 2):  # iterates over linear layers
-            K.set_value(self.model.layers[i].kernel_regularizer.l1, 0)  # updates weight regularization
-            K.set_value(self.model.layers[i].bias_regularizer.l1, 0)  # updates bias regularization
+        # PHASE 2: REGULARIZATION (7T/10)
+        # updating weight, bias regularization
+        for i in range(1, len(self.model.layers), 2):
+            K.set_value(self.model.layers[i].kernel_regularizer.l1, 
+                        reg) 
+            K.set_value(self.model.layers[i].bias_regularizer.l1, 
+                        reg)
+        self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)), 
+                       batch_size=batchSize, verbose=verbose)
+
+        # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION (T/20)
+        # updating weight, bias regularization
+        for i in range(1, len(self.model.layers), 2):
+            K.set_value(self.model.layers[i].kernel_regularizer.l1, 0)
+            K.set_value(self.model.layers[i].bias_regularizer.l1, 0)
             weight, bias = self.model.layers[i].get_weights()
-            K.set_value(self.model.layers[i].kernel_constraint.toZero, np.less(np.abs(weight), np.full(weight.shape, threshold)))
-            K.set_value(self.model.layers[i].bias_constraint.toZero, np.less(np.abs(bias), np.full(bias.shape, threshold)))
-        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)), batch_size=batchSize, verbose=verbose)  # third training: T/20
+            K.set_value(self.model.layers[i].kernel_constraint.toZero, 
+                        np.less(np.abs(weight), np.full(weight.shape, 
+                        threshold)))
+            K.set_value(self.model.layers[i].bias_constraint.toZero, 
+                        np.less(np.abs(bias), np.full(bias.shape, threshold)))
+        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)), 
+                       batch_size=batchSize, verbose=verbose)
 
     def evaluate(self, predictors, labels, batchSize=10, verbose=0):
-        return self.model.evaluate(predictors, labels, batch_size=batchSize, verbose=verbose)[1]
-
-    # NOT MINE: function for making n x m matrix of symbols
-    def make_symbolic(n, m):
-        rows = []
-        for i in range(n):
-            col = []
-            for j in range(m):
-                col.append(sympy.Symbol('x%d' % (j+1)))
-            rows.append(col)
-        return sympy.Matrix(rows)
+        return self.model.evaluate(predictors, labels, batch_size=batchSize, 
+                                   verbose=verbose)[1]
 
     # function for retrieving a model's intrinsic equation
     def getEquation(self):
@@ -189,7 +207,7 @@ class EQL:
             bias[int(i/2)] = np.asarray(self.model.get_weights()[i+1])
 
         # creates generic input vector
-        X = EQL.make_symbolic(1, self.inputSize)
+        X = make_symbolic(1, self.inputSize)
 
         # defines sigmoid function
         sigm = sympy.Function("sigm")
@@ -198,12 +216,11 @@ class EQL:
             # computes the result of the next linear layer
             W = sympy.Matrix(weights[i])
             b = sympy.Transpose(sympy.Matrix(bias[i]))
-            
-            Y = sympy.zeros(1, b.cols)
             X = X*W + b
 
             # computes the result of the next nonlinear layer, if applicable
             if i != (len(weights) - 1):
+                Y = sympy.zeros(1, b.cols)
                 # computes the result of the unary component of the nonlinear layer
                 for j in range(self.nonlinearInfo[i][0]):  # iterating over unary input
                     if self.unaryFunctions[i][j] == 0:  # identity map
@@ -227,7 +244,8 @@ class EQL:
 
         return X
    
-    def plotSlice(self, function, xmin, xmax, step, width=10, height=10, save=False):
+    def plotSlice(self, function, xmin, xmax, step, width=10, height=10, 
+                  save=False):
         # x values
         X = np.asarray([ [(i * step) + xmin for j in range(int(self.inputSize))] for i in range(int((xmax - xmin)/step))])
         # goal function values
@@ -239,7 +257,8 @@ class EQL:
         X = np.transpose(X)
 
         # graph colors
-        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink', 'brown']
+        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink', 
+                  'brown']
 
         # creating subplots
         font = {'family': 'normal', 'weight': 'bold', 'size': 22}
@@ -253,14 +272,18 @@ class EQL:
 
         # graphing
         if self.outputSize == 1:
-            axs.plot(X[0], F_Y, color=colors[0], linewidth=2.5, linestyle='-', label='Function')
-            axs.plot(X[0], model_Y, color=colors[0], linewidth=1.5, linestyle=':', label='model')
+            axs.plot(X[0], F_Y, color=colors[0], linewidth=2.5, linestyle='-', 
+                     label='Function')
+            axs.plot(X[0], model_Y, color=colors[0], linewidth=1.5, 
+                     linestyle=':', label='model')
         else:
             model_Y = np.transpose(model_Y)
             F_Y = np.transpose(F_Y)
             for i in range(self.outputSize):
-                axs[i].plot(X[0], F_Y[i], color=colors[i], linewidth=2.5, linestyle='-', label='Function')
-                axs[i].plot(X[0], model_Y[i], color=colors[i], linewidth=1.5, linestyle=':', label='model')
+                axs[i].plot(X[0], F_Y[i], color=colors[i], linewidth=2.5, 
+                   linestyle='-', label='Function')
+                axs[i].plot(X[0], model_Y[i], color=colors[i], linewidth=1.5, 
+                   linestyle=':', label='model')
 
         if save:
             plt.savefig(self.name + '.png', bbox_inches='tight', dpi=300)
@@ -277,7 +300,8 @@ class EQL:
         return error
     
     def sparsity(self, minMag = 0.01):
-        # list of lists where ith element is list containing activity (in the form of binary value) of outputs of ith layer
+        # list of lists where ith element is list containing activity (in the 
+        # form of a binary value) of outputs of ith layer
         layerSparsity = [ [] for i in range(int(len(self.model.get_weights())/2)) ]
         
         # iterating over layers
@@ -285,24 +309,30 @@ class EQL:
  
             # linear component
             # weights
-            for j in range(len(self.model.get_weights()[i][0])):  # iterating over columns (due to how the matrix mult. works)
+            # iterating over columns (due to how the matrix mult. works)
+            for j in range(len(self.model.get_weights()[i][0])):
                 layerSparsity[int(i/2)].append(0)
-                for k in range(len(self.model.get_weights()[i])):  # iterating over rows
+                # iterating over rows
+                for k in range(len(self.model.get_weights()[i])):
                     if (i == 0 or layerSparsity[int(i/2) - 1][k] != 0) and abs(self.model.get_weights()[i][k][j]) > minMag:
                         layerSparsity[int(i/2)][j] = 1  # if weight surpasses minimum magnitude and input was active, output is active
 
             # biases
             for j in range(len(self.model.get_weights()[i+1])):
                 if abs(self.model.get_weights()[i+1][j]) > minMag:
-                    layerSparsity[int(i/2)][j] = 1  # if bias surpasses minimum magnitude, output is active
+                    # if bias surpasses minimum magnitude, output is active
+                    layerSparsity[int(i/2)][j] = 1
     
         # handling binary units in nonlinear layers where necessary
-        if i != len(self.model.get_weights()) - 2:  # if not last layer (which has no nonlinear component)
-            for j in range(self.nonlinearInfo[int(i/2)][1]):  # active if both units active
+        # if not last layer (which has no nonlinear component)
+        if i != len(self.model.get_weights()) - 2:
+            # active if both units active
+            for j in range(self.nonlinearInfo[int(i/2)][1]):
                 layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + j] = layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + 2 * j] * layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + 2 * j + 1]
             del layerSparsity[int(i/2)][self.nonlinearInfo[int(i/2)][0] + self.nonlinearInfo[int(i/2)][1]:]  # get rid of old values now
 
-        return sum([item for sublist in layerSparsity for item in sublist])  # return sum of flattened layerSparsity list (number of active oututs)
+        # return sum of flattened layerSparsity list (number of active oututs)
+        return sum([item for sublist in layerSparsity for item in sublist])
 
 #
 # EQL-DIV KERAS MODEL
@@ -310,110 +340,143 @@ class EQL:
 
 
 class EQLDIV:    
-    def __init__(self, inputSize, outputSize, numLayers, hypothesisSet, nonlinearInfo, learningRate=0.01, divThreshold=0.001, name='EQL'):
+    
+    """
+    EQL-div function learning network
+    
+    # Arguments
+        inputSize: number of input variables to model. Integer.
+        outputSize: number of variables outputted by model. Integer.
+        numLayers: number of layers in model. A layer is either a fully-
+            connected linear map and a nonlinear map (hidden layer), or just a 
+            fully-connected linear map (final layer). The Keras Input layer 
+            doesn't count.
+        layers: list of Keras layers containing all of the layers in the
+            EQL model (including the Keras Input layer).
+        hypothesisSet: list of unary (R -> R) functions (implemented using 
+            Keras backend to enable element-wise application to tensors) to be 
+            used for nonlinear map layers. In practice, usually contains 
+            identity, sine, cosine, and sigmoid.
+        nonlinearInfo: list with rows equal to number of hidden layers and 2
+            columns. First column is number of unary functions in each hidden
+            layer, second column is number of binary functions in each hidden
+            layer
+        learningRate: optimizer learning rate.
+        divThreshold: float, value which denominator must be greater than in 
+            order for division to occur (division returns 0 otherwise)
+        name: TensorFlow scope name (for TensorBoard)
+        
+    # References
+        - [Learning Equations for Extrapolation and Control](
+           https://arxiv.org/abs/1806.07259)
+        
+    """
+    
+    def __init__(self, inputSize, outputSize, numLayers, hypothesisSet, 
+                 nonlinearInfo, learningRate=0.01, divThreshold=0.001, 
+                 name='EQL'):
+
         self.inputSize = inputSize 
         self.outputSize = outputSize 
         self.numLayers = numLayers 
-        self.layers = [None for i in range(numLayers * 2 + 1)] #list containing model layers
-        self.hypothesisSet = hypothesisSet #hypothesis set of unary functions for nonlinear layers
-        self.nonlinearInfo = nonlinearInfo #number of unary, binary functions for each nonlinear layer
-        self.learningRate = learningRate #optimizer learning rate
-        self.divThreshold = divThreshold #division threshold coefficient
-        self.name = name #tensorflow name for model
+        self.layers = [None for i in range(numLayers * 2 + 1)]
+        self.hypothesisSet = hypothesisSet
+        self.nonlinearInfo = nonlinearInfo
+        self.learningRate = learningRate
+        self.divThreshold = divThreshold
+        self.name = name
 
         with tf.name_scope(self.name) as scope:
             self.unaryFunctions = [ [ j % len(hypothesisSet) for j in range(self.nonlinearInfo[i][0]) ] for i in range(self.numLayers-1) ]
-
-            # print(self.nonlinearInfo)
-            # print(self.unaryFunctions)
-
             self.layers[0] = Input((self.inputSize,), name='input')
 
-            with tf.name_scope('layers') as scope:
+            # Create all hidden layers (linear and nonlinear components)
+            for i in range(1, (self.numLayers-1)*2, 2):
+                # Size of input to layer
+                linIn = int(self.layers[i-1].shape[1])
+                # Unary, binary width of layer
+                u, v = self.nonlinearInfo[int((i-1)/2)]
 
-                # Create all hidden layers (linear and nonlinear components)
-                for i in range(1, (self.numLayers-1)*2, 2):
-                    # Dense/linear component of layer 'i'
-                    stddev = np.sqrt(1 / (int(self.layers[i-1].shape[1]) * (self.nonlinearInfo[int((i-1)/2)][0] + 2 * self.nonlinearInfo[int((i-1)/2)][1])))  # std. dev. of dist. for starting weight values
-                    randNorm = RandNorm(0, stddev=stddev, seed=2000)  # dist. for starting weight values
-                    self.layers[i] = Dense(self.nonlinearInfo[int((i-1)/2)][0] + 2 * self.nonlinearInfo[int((i-1)/2)][1],
+                # Dense/linear component of layer 'i'
+                stddev = np.sqrt(1 / (linIn * (u + 2 * v)))
+                randNorm = RandNorm(0, stddev=stddev, seed=2000)
+                self.layers[i] = Dense(u + 2 * v,
+                                       kernel_initializer=randNorm,
+                                       bias_initializer='zeros',
+                                       kernel_regularizer=my.dynamReg(0),
+                                       bias_regularizer=my.dynamReg(0),
+                                       kernel_constraint=my.ConstL0(tf.cast(K.zeros((linIn, u + 2 * v)), tf.bool)),
+                                       bias_constraint=my.ConstL0(tf.cast(K.zeros((u + 2 * v,)), tf.bool)),
+                                       name='linear'+str(int((i+1)/2)))(self.layers[i-1])
+
+                # Non-linear component of layer 'i'
+                self.layers[i+1] = my.Nonlinear(self.nonlinearInfo[int((i-1)/2)], 
+                           self.hypothesisSet, 
+                           self.unaryFunctions[int((i-1)/2)],
+                           name='nonlinear'+str(int((i+1)/2)))(self.layers[i])
+            
+            # Final layer
+            stddev = np.sqrt(1 / (self.outputSize * int(self.layers[self.numLayers*2-2].shape[1]))) 
+            randNorm = RandNorm(0, stddev=stddev, seed=2000)
+            self.layers[self.numLayers * 2 - 1] = Dense(outputSize * 2,
                                                         kernel_initializer=randNorm,
                                                         bias_initializer='zeros',
-                                                        kernel_regularizer=my.CustomizedWeightRegularizer(0),
-                                                        bias_regularizer=my.CustomizedWeightRegularizer(0),
-                                                        kernel_constraint=my.ConstantL0Norm(tf.cast(K.zeros((int(self.layers[i-1].shape[1]), self.nonlinearInfo[int((i-1)/2)][0] + 2 * self.nonlinearInfo[int((i-1)/2)][1])), tf.bool)),
-                                                        bias_constraint=my.ConstantL0Norm(tf.cast(K.zeros((self.nonlinearInfo[int((i-1)/2)][0] + 2 * self.nonlinearInfo[int((i-1)/2)][1],)), tf.bool)),
-                                                        name='linear'+str(int((i+1)/2)))(self.layers[i-1])  # creates the layer
+                                                        kernel_regularizer=my.dynamReg(0),
+                                                        bias_regularizer=my.dynamReg(0),
+                                                        activity_regularizer=my.CustomizedActivationRegularizer(self.divThreshold),
+                                                        kernel_constraint=my.ConstL0(tf.cast(K.zeros((int(self.layers[numLayers*2-2].shape[1]), self.outputSize*2)), tf.bool)),
+                                                        bias_constraint=my.ConstL0(tf.cast(K.zeros((self.outputSize * 2,)), tf.bool)),
+                                                        name='linear'+str(self.numLayers))(self.layers[self.numLayers*2-2])  # creates the layer
 
-                    # Non-linear component of layer 'i'
-                    self.layers[i+1] = my.NonLinearMap(self.nonlinearInfo[int((i-1)/2)], 
-                               self.hypothesisSet, self.unaryFunctions[int((i-1)/2)],
-                               name='nonlinear'+str(int((i+1)/2)))(self.layers[i])
-                
-                # Final layer
-                stddev = np.sqrt(1 / (self.outputSize * int(self.layers[self.numLayers*2-2].shape[1])))  # std. dev. of dist. for starting weight values
-                randNorm = RandNorm(0, stddev=stddev, seed=2000)  # dist. for starting weight values
-                self.layers[self.numLayers*2-1] = Dense(outputSize*2,
-                                                                     kernel_initializer=randNorm,
-                                                                     bias_initializer='zeros',
-                                                                     kernel_regularizer=my.CustomizedWeightRegularizer(0),
-                                                                     bias_regularizer=my.CustomizedWeightRegularizer(0),
-                                                                     activity_regularizer=my.CustomizedActivationRegularizer(self.divThreshold),
-                                                                     kernel_constraint=my.ConstantL0Norm(tf.cast(K.zeros((int(self.layers[numLayers*2-2].shape[1]), self.outputSize*2)), tf.bool)),
-                                                                     bias_constraint=my.ConstantL0Norm(tf.cast(K.zeros((self.outputSize * 2,)), tf.bool)),
-                                                                     name='linear'+str(self.numLayers))(self.layers[self.numLayers*2-2])  # creates the layer
-
-                # Division final layer component
-                self.layers[self.numLayers*2] = my.DivisionMap(self.divThreshold)(self.layers[self.numLayers*2-1])
+            # Division final layer component
+            self.layers[self.numLayers*2] = my.DivisionMap(self.divThreshold)(self.layers[self.numLayers*2-1])
 
             # Optimizer
             optimizer = keras.optimizers.Adam(lr=self.learningRate)
 
             # Model
-            self.model = keras.Model(inputs=self.layers[0], outputs=self.layers[self.numLayers*2])
+            self.model = keras.Model(inputs=self.layers[0], 
+                                     outputs=self.layers[self.numLayers * 2])
+
             # Compilation
-        self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
+            self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
 
-    def fit(self, predictors, labels, numEpoch, regStrength, batchSize=20, normThreshold=0.001, verbose=0):            
-        dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(epoch+1)))
+    def fit(self, predictors, labels, numEpoch, regStrength, batchSize=20, 
+            normThreshold=0.001, verbose=0):            
+        dynamicThreshold = LambCall(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(epoch+1)))
 
-        # PHASE 1: NO REGULARIZATION
-        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/4)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold]) #first training: T/4
+        # PHASE 1: NO REGULARIZATION (T/4)
+        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/4)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold])
+        dynamicThreshold = LambCall(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(int(numEpoch*(1/4))+numEpoch+1)))
 
-        # print(self.model.get_weights())
-        dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(int(numEpoch*(1/4))+numEpoch+1)))
+        # PHASE 2: REGULARIZATION (7T/10)
+        for i in range(1,len(self.model.layers),2):
+            K.set_value(self.model.layers[i].kernel_regularizer.l1, 
+                        regStrength)
+            K.set_value(self.model.layers[i].bias_regularizer.l1, 
+                        regStrength)
+        self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold])
+        dynamicThreshold = LambCall(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(int(numEpoch*(1/4))+int(numEpoch*(7/10))+numEpoch+1)))
 
-        # PHASE 2: REGULARIZATION
-        for i in range(1,len(self.model.layers),2):  # iterates over layers
-            K.set_value(self.model.layers[i].kernel_regularizer.l1, regStrength)  # updates weight regularization
-            K.set_value(self.model.layers[i].bias_regularizer.l1, regStrength)  # updates bias regularization
-
-        self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold])  # second training: 7T/10
-        dynamicThreshold = keras.callbacks.LambdaCallback(on_epoch_begin = lambda epoch, logs: K.set_value(self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(int(numEpoch*(1/4))+int(numEpoch*(7/10))+numEpoch+1)))
-
-        # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION
-        for i in range(1, len(self.model.layers), 2):  # iterates over linear layers
-            K.set_value(self.model.layers[i].kernel_regularizer.l1, 0)  # updates weight regularization
-            K.set_value(self.model.layers[i].bias_regularizer.l1, 0)  # updates bias regularization
+        # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION (T/20)
+        for i in range(1, len(self.model.layers), 2):
+            K.set_value(self.model.layers[i].kernel_regularizer.l1, 0)
+            K.set_value(self.model.layers[i].bias_regularizer.l1, 0)
             weight, bias = self.model.layers[i].get_weights()
-            K.set_value(self.model.layers[i].kernel_constraint.toZero, np.less(np.abs(weight), np.full(weight.shape, normThreshold)))
-            K.set_value(self.model.layers[i].bias_constraint.toZero, np.less(np.abs(bias), np.full(bias.shape, normThreshold)))
-
-        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)), batch_size=batchSize, verbose=verbose, callbacks=[dynamicThreshold])  # third training: T/20
+            K.set_value(self.model.layers[i].kernel_constraint.toZero,
+                        np.less(np.abs(weight), np.full(weight.shape,
+                        normThreshold)))
+            K.set_value(self.model.layers[i].bias_constraint.toZero,
+                        np.less(np.abs(bias), np.full(bias.shape,
+                        normThreshold)))
+        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)), 
+                       batch_size=batchSize, verbose=verbose, 
+                       callbacks=[dynamicThreshold])
         K.set_value(self.model.layers[self.numLayers*2].threshold, 0.001)
 
     def evaluate(self, predictors, labels, batchSize=10, verbose=0):
-        return self.model.evaluate(predictors, labels, batch_size=batchSize, verbose=verbose)[1]
-
-    #NOT MINE: function for making n x m matrix of symbols
-    def make_symbolic(n, m):
-        rows = []
-        for i in range(n):
-            col = []
-            for j in range(m):
-                col.append(sympy.Symbol('x%d' % (j+1)))
-            rows.append(col)
-        return sympy.Matrix(rows)
+        return self.model.evaluate(predictors, labels, batch_size=batchSize, 
+                                   verbose=verbose)[1]
 
     #function for retrieving a model's intrinsic equation
     def getEquation(self):        
@@ -427,7 +490,7 @@ class EQLDIV:
             bias[int(i/2)] = np.asarray(self.model.get_weights()[i+1])
 
         # creates generic input vector
-        X = EQL.make_symbolic(1, self.inputSize)
+        X = make_symbolic(1, self.inputSize)
 
         # defines sigmoid function
         sigm = sympy.Function("sigm")
@@ -436,7 +499,6 @@ class EQLDIV:
             # computes the result of the next linear layer
             W = sympy.Matrix(weights[i])
             b = sympy.Transpose(sympy.Matrix(bias[i]))
-
             Y = sympy.zeros(1, b.cols)
             X = X*W + b
 
@@ -489,7 +551,8 @@ class EQLDIV:
         X = np.transpose(X)
         
         # graph colors
-        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink', 'brown']
+        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink', 
+                  'brown']
 
         # creating subplots
         font = {'family': 'normal', 'weight': 'bold', 'size': 22}
@@ -501,17 +564,22 @@ class EQLDIV:
 
         # graphing
         if self.outputSize == 1:
-            axs.plot(X[0], F_Y, color=colors[0], linewidth=2.5, linestyle='-', label='Function')
-            axs.plot(X[0], model_Y, color=colors[0], linewidth=1.5, linestyle=':', label='model')
+            axs.plot(X[0], F_Y, color=colors[0], linewidth=2.5, linestyle='-', 
+                     label='Function')
+            axs.plot(X[0], model_Y, color=colors[0], linewidth=1.5, 
+                     linestyle=':', label='model')
         else:
             model_Y = np.transpose(model_Y)
             F_Y = np.transpose(F_Y)
             for i in range(self.outputSize):
-                axs[i].plot(X[0], F_Y[i], color=colors[i], linewidth=2.5, linestyle='-', label='Function')
-                axs[i].plot(X[0], model_Y[i], color=colors[i], linewidth=1.5, linestyle=':', label='model')
+                axs[i].plot(X[0], F_Y[i], color=colors[i], linewidth=2.5, 
+                   linestyle='-', label='Function')
+                axs[i].plot(X[0], model_Y[i], color=colors[i], linewidth=1.5, 
+                   linestyle=':', label='model')
         
         if save:
-            plt.savefig(self.name + str(np.random.randint(100)) + '.png', bbox_inches='tight', dpi=300)
+            plt.savefig(self.name + str(np.random.randint(100)) + '.png', 
+                        bbox_inches='tight', dpi=300)
 
         plt.close()
 
