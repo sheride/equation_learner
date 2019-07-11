@@ -373,6 +373,10 @@ class EQL:
         # return sum of flattened layerSparsity list (number of active oututs)
         return sum([item for sublist in layerSparsity for item in sublist])
 
+    def odecompat(self, t, x):
+        prediction = self.model.predict(np.reshape(x, (1, len(x))))
+        return prediction
+
 
 class EQLDIV:
 
@@ -684,10 +688,10 @@ class EQLDIV:
                 for k in range(len(self.model.get_weights()[i])):
                     if ((i == 0 or layerSparsity[int(i/2) - 1][k] != 0) and
                             abs(self.model.get_weights()[i][k][j]) > minMag):
-                        # if weight surpasses minimum magnitude and input was
+                        # if weight surpasses minimum magnitude and input was z
                         # active, output is active
                         layerSparsity[int(i/2)][j] = 1
-
+        
             # biases
             for j in range(len(self.model.get_weights()[i+1])):
                 if abs(self.model.get_weights()[i+1][j]) > minMag:
@@ -720,6 +724,6 @@ class EQLDIV:
         # return sum of flattened layerSparsity list (number of active oututs)
         return sum([item for sublist in layerSparsity for item in sublist])
 
-    def solve_ivp_compat(self, t, x):
-        deriv = self.model.predict(np.reshape(x, (1, len(x))))
-        return deriv
+    def odecompat(self, t, x):
+        prediction = self.model.predict(np.reshape(x, (1, len(x))))
+        return prediction
