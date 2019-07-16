@@ -20,6 +20,10 @@ from keras.layers import Layer
 import tensorflow as tf
 
 
+def f1(x):
+    return x
+
+
 class Nonlinear(Layer):
 
     # initializing with values
@@ -31,6 +35,7 @@ class Nonlinear(Layer):
 
     # behavior of non-linear layer
     def call(self, linOutput):
+
         # renaming num of unary, binary functions for simplicity
         u = self.nodeInfo[0]
         v = self.nodeInfo[1]
@@ -137,7 +142,7 @@ class DynamReg(keras.regularizers.Regularizer):
         # this is the important part: this has to be a variable (i.e.
         # modifiable)
         self.l1 = K.variable(l1, name='weightReg')
-        self.l2 = K.cast_to_floatx(l2)
+        self.l2 = K.variable(l2, name='weightReg')
         self.uses_learning_phase = True
         self.p = None
 
@@ -148,6 +153,10 @@ class DynamReg(keras.regularizers.Regularizer):
         if self.l2:
             regularization += K.sum(self.l2 * K.square(x))
         return regularization
+
+    def get_config(self):
+        return {'l1': float(self.l1.eval(session=K.get_session())),
+                'l2': float(self.l2.eval(session=K.get_session()))}
 
 #
 # CUSTOM KERAS L0 NORM PRESERVATION CONSTRAINT CLASS
@@ -162,6 +171,9 @@ class ConstantL0(keras.constraints.Constraint):
         return tf.where(self.toZero, K.zeros_like(w), w)
         # ^^replaces weights matrix entries with original value if greater than
         # threshold, zero otherwise
+
+    def get_config(self):
+        return {'toZero': self.toZero.eval(session=K.get_session())}
 
 #
 # CUSTOM KERAS REGULARIZATION CLASS (EQLDIV NEGATIVE DENOMINATOR PENALTY)
