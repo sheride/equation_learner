@@ -176,7 +176,7 @@ class EQL:
 
             # Model
             self.model = keras.Model(inputs=self.layers[0],
-                                     outputs=self.layers[self.numLayers*2-1])
+                                     outputs=[self.numLayers*2-1])
 
             # Compilation
             self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
@@ -298,8 +298,8 @@ class EQL:
         fig.suptitle('Title', **font)
         plt.xlabel('X-Axis', **font)
         plt.ylabel('Y-Axis', **font)
-        axs.tick_params(axis='both', which='major', labelsize=18)
-        axs.tick_params(axis='both', which='minor', labelsize=18)
+        plt.xticks(fontsize=15)
+        plt.yticks(fontsize=15)
 
         # graphing
         if self.outputSize == 1:
@@ -639,6 +639,8 @@ class EQLDIV:
         fig.suptitle('Title', **font)
         plt.xlabel('X-Axis', **font)
         plt.ylabel('Y-Axis', **font)
+        plt.xticks(fontsize=15)
+        plt.yticks(fontsize=15)
 
         # graphing
         if self.outputSize == 1:
@@ -691,7 +693,7 @@ class EQLDIV:
                         # if weight surpasses minimum magnitude and input was z
                         # active, output is active
                         layerSparsity[int(i/2)][j] = 1
-        
+
             # biases
             for j in range(len(self.model.get_weights()[i+1])):
                 if abs(self.model.get_weights()[i+1][j]) > minMag:
