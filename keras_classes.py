@@ -20,12 +20,79 @@ from keras.layers import Layer
 import tensorflow as tf
 
 
-def f1(x):
-    return x
+"""
+WORK IN PROGRESS: COMBINED LINEAR/NONLINEAR LAYERS
+"""
+class eqlLayer(Layer):
+    # initializing with values
+    def __init__(self, nodeInfo, hypSet, unaryFunc, kernel_initializer=None,
+                 bias_initializer=None, **kwargs):
+        self.nodeInfo = nodeInfo
+        self.hypSet = hypSet
+        self.unaryFunc = unaryFunc
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        super(eqlLayer, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        u, v = self.nodeInfo
+        self.W = self.add_weight(name='kernel',
+                                      shape=(input_shape[1], u + 2 * v),
+                                      initializer=self.kernel_initializer,
+                                      trainable=True)
+        self.b = self.add_weight(name='bias',
+                                    shape=(u + 2 * v, ),
+                                    initializer=self.kernel_initializer,
+                                    trainable=True)
+        super(eqlLayer, self).build(input_shape)
+
+    def call(self, x):
+        # linear component
+        u, v = self.nodeInfo
+        linOutput = tf.linalg.matmul(x,self.W) + self.b
+
+        # nonlinear component
+        nonlinOutput = self.hypSet[self.unaryFunc[0]](linOutput[:,:1])
+        for i in range(u):
+            nonlinOutput = tf.concat(
+                    [nonlinOutput,
+                     self.hypSet[self.unaryFunc[0]](linOutput[:,i-1:i])],
+                    axis=1)
+
+
+class Nonlinear2(Layer):
+    # initializing with values
+    def __init__(self, nodeInfo, hypSet, unaryFunc, **kwargs):
+        self.nodeInfo = nodeInfo
+        self.hypSet = hypSet
+        self.unaryFunc = unaryFunc
+        super(Nonlinear2, self).__init__(**kwargs)
+
+    # behavior of non-linear layer
+    def call(self, linOutput):
+        u, v = self.nodeInfo
+        nonlinOutput = self.hypSet[self.unaryFunc[0]](linOutput[:,:1])
+        for i in range(1,u):
+            nonlinOutput = tf.concat(
+                    [nonlinOutput,
+                     self.hypSet[self.unaryFunc[i]](linOutput[:,i:i+1])],
+                    axis=1)
+
+        for i in range(u, u + 2 * v, 2):
+            nonlinOutput = tf.concat(
+                    [nonlinOutput,
+                     tf.math.multiply(linOutput[:,i:i+1], linOutput[:,i+1:i+2])],
+                    axis=1)
+
+        return nonlinOutput
+
+
+    # returns the shape of a non-linear layer using the nodeInfo list
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], self.nodeInfo[0] + self.nodeInfo[1])
 
 
 class Nonlinear(Layer):
-
     # initializing with values
     def __init__(self, nodeInfo, hypSet, unaryFunc, **kwargs):
         self.nodeInfo = nodeInfo
@@ -92,7 +159,6 @@ class Nonlinear(Layer):
     # returns the shape of a non-linear layer using the nodeInfo list
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.nodeInfo[0] + self.nodeInfo[1])
-
 
 class Division(Layer):
     # initializing with values

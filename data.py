@@ -70,7 +70,8 @@ def genPendulumDiffEqData(w, n):
                            extrapolation_near_labels,
                            extrapolation_far_predictors,
                            extrapolation_far_labels])
-    np.save('PendulumDiffEq' + str(w) + str(n), all_data, allow_pickle=False)
+    np.save('PendulumDiffEq_' + str(w) + '_' + str(n), all_data,
+            allow_pickle=False)
 
 
 """
@@ -185,7 +186,8 @@ def genFunctionData(w, n, f):
                            extrapolation_near_labels,
                            extrapolation_far_predictors,
                            extrapolation_far_labels])
-    np.save('FunctionData' + str(w) + str(n), all_data, allow_pickle=False)
+    np.save('FunctionData_' + str(w) + '_' + str(n), all_data,
+            allow_pickle=False)
 
 
 """
@@ -240,7 +242,7 @@ def genDoublePendulumDiffEqData(w, n):
                            extrapolation_near_labels,
                            extrapolation_far_predictors,
                            extrapolation_far_labels])
-    np.save('DoublePendulumDiffEq' + str(w) + str(n), all_data,
+    np.save('DoublePendulumDiffEq_' + str(w) + '_' + str(n), all_data,
             allow_pickle=False)
 
 
@@ -309,7 +311,7 @@ def gen4LatticeDiffEqData(w, n):
                            extrapolation_near_labels,
                            extrapolation_far_predictors,
                            extrapolation_far_labels])
-    np.save('NLatticeDiffEq' + str(w) + str(n), all_data, allow_pickle=False)
+    np.save('NLatticeDiffEq_' + str(w) + '_' + str(n), all_data, allow_pickle=False)
 
 
 """
@@ -351,7 +353,7 @@ def genDivisionFunctionData(w, n):
                            extrapolation_near_labels,
                            extrapolation_far_predictors,
                            extrapolation_far_labels])
-    np.save('DivisionFunction' + str(w) + str(n), all_data, allow_pickle=False)
+    np.save('DivisionFunction_' + str(w) + '_' + str(n), all_data, allow_pickle=False)
 
 
 """
@@ -408,7 +410,7 @@ def genDoublePendulumDiffEqEnergyData(w, n):
                            extrapolation_near_labels,
                            extrapolation_far_predictors,
                            extrapolation_far_labels])
-    np.save('DoublePendulumDiffEqEnergy' + str(w) + str(n), all_data,
+    np.save('DoublePendulumDiffEqEnergy_' + str(w) + '_' + str(n), all_data,
             allow_pickle=False)
 
 
@@ -466,5 +468,5 @@ def genDoublePendulumDiffEqKEPEData(w, n):
                            extrapolation_near_labels,
                            extrapolation_far_predictors,
                            extrapolation_far_labels])
-    np.save('DoublePendulumDiffEqKEPE' + str(w) + str(n), all_data,
-            allow_pickle=False)
+    np.save('DoublePendulumDiffEqKEPE_' + str(w) + '_' + str(n), all_data,
+            allow_pickle=True)

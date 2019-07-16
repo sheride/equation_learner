@@ -10,7 +10,7 @@ from keras.engine.input_layer import Input
 from keras.layers import Dense
 from keras.callbacks import LambdaCallback as LambCall
 from . import keras_classes as my
-from .keras_classes import Nonlinear as Nonlin
+from .keras_classes import Nonlinear2 as Nonlin
 from .keras_classes import DynamReg
 from .keras_classes import ConstantL0 as ConL0
 from .keras_classes import DenominatorPenalty as DenPen
@@ -28,17 +28,17 @@ def f1(x):
 
 # sine function
 def f2(x):
-    return K.sin(x)
+    return tf.math.sin(x)
 
 
 # cosine function
 def f3(x):
-    return K.cos(x)
+    return tf.math.cos(x)
 
 
 # sigmoid/logistic function
 def f4(x):
-    return 1 / (1 + K.exp(-1 * x))
+    return 1 / (1 + tf.math.exp(-1 * x))
 
 
 # division with threshold (0.001)
@@ -176,7 +176,7 @@ class EQL:
 
             # Model
             self.model = keras.Model(inputs=self.layers[0],
-                                     outputs=[self.numLayers*2-1])
+                                     outputs=self.layers[self.numLayers*2-1])
 
             # Compilation
             self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
@@ -367,8 +367,6 @@ class EQL:
                 layerSparsity[int(i/2)][u + j] = layerSparsity[int(i/2)][
                     u + 2 * j] * layerSparsity[int(i/2)][u + 2 * j + 1]
             del layerSparsity[int(i/2)][u + v:]  # get rid of old values now
-
-        print(layerSparsity)
 
         # return sum of flattened layerSparsity list (number of active oututs)
         return sum([item for sublist in layerSparsity for item in sublist])
