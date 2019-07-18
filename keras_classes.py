@@ -23,6 +23,8 @@ import tensorflow as tf
 """
 WORK IN PROGRESS: COMBINED LINEAR/NONLINEAR LAYERS
 """
+
+
 class eqlLayer(Layer):
     # initializing with values
     def __init__(self, nodeInfo, hypSet, unaryFunc, kernel_initializer=None,
@@ -37,13 +39,13 @@ class eqlLayer(Layer):
     def build(self, input_shape):
         u, v = self.nodeInfo
         self.W = self.add_weight(name='kernel',
-                                      shape=(input_shape[1], u + 2 * v),
-                                      initializer=self.kernel_initializer,
-                                      trainable=True)
+                                 shape=(input_shape[1], u + 2 * v),
+                                 initializer=self.kernel_initializer,
+                                 trainable=True)
         self.b = self.add_weight(name='bias',
-                                    shape=(u + 2 * v, ),
-                                    initializer=self.kernel_initializer,
-                                    trainable=True)
+                                 shape=(u + 2 * v, ),
+                                 initializer=self.kernel_initializer,
+                                 trainable=True)
         super(eqlLayer, self).build(input_shape)
 
     def call(self, x):
@@ -52,12 +54,23 @@ class eqlLayer(Layer):
         linOutput = tf.linalg.matmul(x,self.W) + self.b
 
         # nonlinear component
+        # unary functions
         nonlinOutput = self.hypSet[self.unaryFunc[0]](linOutput[:,:1])
-        for i in range(u):
+        for i in range(1,u):
             nonlinOutput = tf.concat(
                     [nonlinOutput,
-                     self.hypSet[self.unaryFunc[0]](linOutput[:,i-1:i])],
+                     self.hypSet[self.unaryFunc[i]](linOutput[:,i:i+1])],
                     axis=1)
+
+        # binary functions (multiplication)
+        for i in range(u, u + 2 * v, 2):
+            nonlinOutput = tf.concat(
+                    [nonlinOutput,
+                     tf.math.multiply(linOutput[:,i:i+1],
+                                      linOutput[:,i+1:i+2])],
+                    axis=1)
+
+        return nonlinOutput
 
 
 class Nonlinear2(Layer):
@@ -81,7 +94,8 @@ class Nonlinear2(Layer):
         for i in range(u, u + 2 * v, 2):
             nonlinOutput = tf.concat(
                     [nonlinOutput,
-                     tf.math.multiply(linOutput[:,i:i+1], linOutput[:,i+1:i+2])],
+                     tf.math.multiply(linOutput[:,i:i+1],
+                                      linOutput[:,i+1:i+2])],
                     axis=1)
 
         return nonlinOutput

@@ -79,6 +79,68 @@ def make_symbolic(n, m):
     return sympy.Matrix(rows)
 
 
+def plotTogether(inputSize, outputSize, models, function, xmin, xmax, ymin,
+                 ymax, step, width=10, height=10, save=False, legNames=None,
+                 name='EQL', title='Title', xlabel='X-Axis', ylabel='Y-Axis'):
+
+    # x values
+    X = np.asarray([[(i * step) + xmin
+                     for j in range(int(inputSize))]
+                   for i in range(int((xmax - xmin)/step))])
+    # goal function values
+    F_Y = np.apply_along_axis(function, 1, X)
+    # model predictions
+    models_Y = [model.model.predict(X) for model in models]
+
+    # reshaping
+    X = np.transpose(X)
+
+    # graph colors
+    colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink',
+              'brown']
+
+    # creating subplots
+    font = {'family': 'sans-serif', 'weight': 'bold', 'size': 48}
+
+    fig, axs = plt.subplots(outputSize, figsize=(width, height))
+    fig.suptitle(title, **font)
+    plt.xlabel(xlabel, **font)
+    plt.ylabel(ylabel, **font)
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+    plt.ylim(ymin,ymax)
+
+    lines = [0 for i in range(len(models) + 1)]
+    if legNames == None:
+        legNames = tuple('Model ' + str(i+1) for i in range(len(models)))
+
+    # graphing
+    if outputSize == 1:
+        lines[0], = axs.plot(X[0], F_Y, color=colors[0], linewidth=1.5,
+                            linestyle='-', label='Function')
+        for j in range(len(models)):
+            lines[j+1], = axs.plot(X[0], models_Y[j], color=colors[j+1],
+                                 linewidth=2.5, linestyle=':', label='model')
+        plt.legend(lines, legNames, fontsize='xx-large')
+    else:
+        F_Y = np.transpose(F_Y)
+        for j in range(len(models)):
+            models_Y[j] = np.transpose(models_Y[j])
+            for i in range(outputSize):
+                if j == 0:
+                    axs[i].plot(X[0], F_Y[i], color=colors[0], linewidth=1,
+                                linestyle='-', label='Function')
+                axs[i].plot(X[0], models_Y[j][i], color=colors[j+1],
+                        linewidth=2.5, linestyle=':', label='model')
+
+
+    if save:
+        plt.savefig(name + '.png', bbox_inches='tight', dpi=300)
+
+    plt.close()
+
+
+
 class EQL:
 
     """

@@ -311,7 +311,8 @@ def gen4LatticeDiffEqData(w, n):
                            extrapolation_near_labels,
                            extrapolation_far_predictors,
                            extrapolation_far_labels])
-    np.save('NLatticeDiffEq_' + str(w) + '_' + str(n), all_data, allow_pickle=False)
+    np.save('NLatticeDiffEq_' + str(w) + '_' + str(n), all_data,
+            allow_pickle=False)
 
 
 """
@@ -353,7 +354,8 @@ def genDivisionFunctionData(w, n):
                            extrapolation_near_labels,
                            extrapolation_far_predictors,
                            extrapolation_far_labels])
-    np.save('DivisionFunction_' + str(w) + '_' + str(n), all_data, allow_pickle=False)
+    np.save('DivisionFunction_' + str(w) + '_' + str(n), all_data,
+            allow_pickle=False)
 
 
 """
@@ -470,3 +472,41 @@ def genDoublePendulumDiffEqKEPEData(w, n):
                            extrapolation_far_labels])
     np.save('DoublePendulumDiffEqKEPE_' + str(w) + '_' + str(n), all_data,
             allow_pickle=True)
+
+
+"""
+Regularization Demonstration R -> R Function Data
+"""
+
+def regDem(x):
+    return ((x * np.cos(11 * x) - 3 * x**2)
+            / (np.sin(x) + 4))
+
+def genRegFunctionData(w, n):
+    training_predictors = [genNum(w) for i in range(n)]
+    training_labels = [
+            regDem(training_predictors[i]) for i in range(n)]
+    interpolation_predictors = [genNum(w) for i in range(n)]
+    interpolation_labels = [
+            regDem(interpolation_predictors[i])
+            for i in range(n)]
+    extrapolation_near_predictors = [genNum(w/4) + genSign() * (5 * w/4)
+            for i in range(n)]
+    extrapolation_near_labels = [
+            regDem(extrapolation_near_predictors[i])
+            for i in range(n)]
+    extrapolation_far_predictors = [genNum(w/2) + genSign() * (3 * w/2)
+            for i in range(n)]
+    extrapolation_far_labels = [
+            regDem(extrapolation_far_predictors[i])
+            for i in range(n)]
+    all_data = np.asarray([training_predictors,
+                           training_labels,
+                           interpolation_predictors,
+                           interpolation_labels,
+                           extrapolation_near_predictors,
+                           extrapolation_near_labels,
+                           extrapolation_far_predictors,
+                           extrapolation_far_labels])
+    np.save('RegDemFunction_' + str(w) + '_' + str(n), all_data,
+            allow_pickle=False)
