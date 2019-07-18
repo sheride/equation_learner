@@ -21,18 +21,18 @@ def odeSolve(models, odeFunction, initialCond, timeSpan, step):
     modelsSol = [0 for i in range(len(models))]
     for i in range(len(models)):
         modelsSol[i] = solve_ivp(models[i].odecompat, timeSpan, initialCond,
-                         first_step=step, max_step=step)
+                                 first_step=step, max_step=step)
     return [actualSol, modelsSol]
 
 
-def diffPlot(actualSol, modelSol, figsize=(10,10), ymax=3,
+def diffPlot(actualSol, modelSol, figsize=(10, 10), ymax=3,
              name='Difference Plot', names=None, title='Title',
              xlabel='X-Axis', ylabel='Y-Axis'):
     n = len(modelSol)
 
     diff = [0 for i in range(n)]
     lines = [0 for i in range(n)]
-    if names == None:
+    if names is None:
         names = tuple('Model ' + str(i+1) for i in range(n))
 
     for i in range(n):
@@ -57,12 +57,12 @@ def diffPlot(actualSol, modelSol, figsize=(10,10), ymax=3,
 
 
 def make2DMovie(actualSolCoords, modelSolCoords, xmin=-3, xmax=3, ymin=-3,
-                ymax=3, figSize=(10,10), lineWidth=4,
+                ymax=3, figSize=(10, 10), lineWidth=4,
                 name='Model-Reality Comparison'):
     actualT, actualSolX, actualSolY = actualSolCoords
     modelT, modelSolX, modelSolY = modelSolCoords
     movie = pyvie.Movie(name, framerate=20, file_type='.png',
-                        movie_type = '.avi')
+                        movie_type='.avi')
     plt.figure(figsize=figSize)
     for t in range(min(len(actualT), len(modelT))):
         plt.clf()
@@ -84,7 +84,7 @@ def make2DMovie(actualSolCoords, modelSolCoords, xmin=-3, xmax=3, ymin=-3,
 # based of an idea from @rjallain at
 # http://www.wired.com/2009/12/pendulum-a-third-way/
 def simulateDoublePendula(models, func, x0, tEnd=10, deltat=0.005):
-    ## constants
+    # constants
     t = 0
 
     theta1, omega1, theta2, omega2 = x0
@@ -93,8 +93,8 @@ def simulateDoublePendula(models, func, x0, tEnd=10, deltat=0.005):
 
     vp.canvas(width=1400, height=750, background=vp.color.white)
 
-    ## create the ceiling, masses, and strings
-    ceiling = vp.box(pos=vec(0,1,0), size = vec(0.1, 0.05, 0.1),
+    # create the ceiling, masses, and strings
+    ceiling = vp.box(pos=vec(0, 1, 0), size=vec(0.1, 0.05, 0.1),
                      color=vp.color.gray(0.5))
 
     rball1 = vp.sphere(

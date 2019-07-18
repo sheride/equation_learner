@@ -478,9 +478,11 @@ def genDoublePendulumDiffEqKEPEData(w, n):
 Regularization Demonstration R -> R Function Data
 """
 
+
 def regDem(x):
     return ((x * np.cos(11 * x) - 3 * x**2)
             / (np.sin(x) + 4))
+
 
 def genRegFunctionData(w, n):
     training_predictors = [genNum(w) for i in range(n)]
