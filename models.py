@@ -10,9 +10,9 @@ from keras.engine.input_layer import Input
 from keras.layers import Dense
 from keras.callbacks import LambdaCallback as LambCall
 from . import keras_classes as my
-from .keras_classes import Nonlinear2 as Nonlin
+from .keras_classes import Nonlinear as Nonlin
 from .keras_classes import DynamReg
-from .keras_classes import ConstantL0 as ConL0
+from .keras_classes import ConstantL0
 from .keras_classes import DenominatorPenalty as DenPen
 
 """
@@ -96,19 +96,45 @@ def plotTogether(inputSize, outputSize, models, function, xmin, xmax, ymin,
     X = np.transpose(X)
 
     # graph colors
-    colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink',
-              'brown']
+    msuGray = (153/255, 162/255, 162/255)
+    msuGreen = (24/255, 69/255, 59/255)
+    # msuYellow = (209/255, 202/255, 63/255)
+    msuOrange = (240/255, 133/255, 33/255)
+    msuPurple = (110/255, 0, 95/255)
+    # msuBlue = (144/255, 154/255, 184/255)
+    # msuTan = (232/255, 217/255, 181/255)
+    msuCyan = (0, 129/255, 131/255)
+    colors = [msuGray, msuCyan, msuOrange, msuPurple,
+              'purple', 'black', 'pink', 'brown']
 
     # creating subplots
-    font = {'family': 'sans-serif', 'weight': 'bold', 'size': 48}
+    titlefont = {'family': 'sans-serif', 'weight': 'bold', 'size': 72, 'color': msuGreen}
+    labelfont = {'family': 'serif', 'weight': 'bold', 'size': 48, 'color': msuGreen}
+    tickfont = {'size': 24, 'color': msuGreen}
 
     fig, axs = plt.subplots(outputSize, figsize=(width, height))
-    fig.suptitle(title, **font)
-    plt.xlabel(xlabel, **font)
-    plt.ylabel(ylabel, **font)
-    plt.xticks(fontsize=15)
-    plt.yticks(fontsize=15)
+    fig.suptitle(title, **titlefont)
+    axs.spines['top'].set_linewidth(4)
+    axs.spines['right'].set_linewidth(4)
+    axs.spines['bottom'].set_linewidth(4)
+    axs.spines['left'].set_linewidth(4)
+    axs.spines['top'].set_color(msuGreen)
+    axs.spines['right'].set_color(msuGreen)
+    axs.spines['bottom'].set_color(msuGreen)
+    axs.spines['left'].set_color(msuGreen)
+    axs.set_xticks([-1, 1], minor=False)
+    axs.set_xticks([-2, 0, 2], minor=True)
+    axs.set_yticks([0, -1, -2, -3], minor=False)
+    axs.xaxis.grid(True, which='major', linewidth='4', color=msuGreen,
+                   linestyle=':')
+    plt.xlabel(xlabel, labelpad=20, **labelfont)
+    plt.ylabel(ylabel, labelpad=20, **labelfont)
+    plt.yticks(**tickfont)
+    plt.xticks(**tickfont)
     plt.ylim(ymin, ymax)
+    plt.xlim(xmin, xmax)
+    plt.tick_params(axis='both', which='major', labelsize=30, color=msuGreen)
+    axs.tick_params(length=15, width=2, which='both', color=msuGreen)
 
     lines = [0 for i in range(len(models) + 1)]
     if legNames is None:
@@ -116,12 +142,12 @@ def plotTogether(inputSize, outputSize, models, function, xmin, xmax, ymin,
 
     # graphing
     if outputSize == 1:
-        lines[0], = axs.plot(X[0], F_Y, color=colors[0], linewidth=1.5,
+        lines[0], = axs.plot(X[0], F_Y, color=colors[0], linewidth=10,
                              linestyle='-', label='Function')
         for j in range(len(models)):
             lines[j+1], = axs.plot(X[0], models_Y[j], color=colors[j+1],
-                                   linewidth=2.5, linestyle=':', label='model')
-        plt.legend(lines, legNames, fontsize='xx-large')
+                                   linewidth=5, linestyle='--', label='model')
+        plt.legend(lines, legNames, fontsize=36)
     else:
         F_Y = np.transpose(F_Y)
         for j in range(len(models)):
@@ -207,8 +233,8 @@ class EQL:
                     kernel_initializer=randNorm,
                     kernel_regularizer=DynamReg(0),
                     bias_regularizer=DynamReg(0),
-                    kernel_constraint=ConL0(wZeros),
-                    bias_constraint=ConL0(bZeros)
+                    kernel_constraint=ConstantL0(wZeros),
+                    bias_constraint=ConstantL0(bZeros)
                     )(self.layers[i-1])
                 # Non-linear component of layer 'i'
                 self.layers[i+1] = Nonlin(self.nonlinearInfo[int((i-1)/2)],
@@ -227,8 +253,8 @@ class EQL:
                 kernel_initializer=randNorm,
                 kernel_regularizer=DynamReg(0),
                 bias_regularizer=DynamReg(0),
-                kernel_constraint=ConL0(wZeros),
-                bias_constraint=ConL0(bZeros),
+                kernel_constraint=ConstantL0(wZeros),
+                bias_constraint=ConstantL0(bZeros),
                 )(self.layers[numKerLay-2])
 
             # Optimizer
@@ -268,6 +294,7 @@ class EQL:
                                 np.full(weight.shape, threshold)))
             K.set_value(self.model.layers[i].bias_constraint.toZero,
                         np.less(np.abs(bias), np.full(bias.shape, threshold)))
+#            print(self.model.layers[i].kernel_constraint.toZero.eval(session=K.get_session()))
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
                        batch_size=batchSize, verbose=verbose)
 
@@ -482,6 +509,7 @@ class EQLDIV:
         self.learningRate = learningRate
         self.divThreshold = divThreshold
         self.name = name
+        self.pipeline = None
 
         with tf.name_scope(self.name) as scope:
             # Number of Keras layers: length of self.layers
@@ -507,8 +535,8 @@ class EQLDIV:
                                        kernel_initializer=randNorm,
                                        kernel_regularizer=DynamReg(0),
                                        bias_regularizer=DynamReg(0),
-                                       kernel_constraint=ConL0(wZeros),
-                                       bias_constraint=ConL0(bZeros),
+                                       kernel_constraint=ConstantL0(wZeros),
+                                       bias_constraint=ConstantL0(bZeros),
                                        )(self.layers[i-1])
 
                 # Non-linear component of layer 'i'
@@ -530,8 +558,8 @@ class EQLDIV:
                 kernel_regularizer=DynamReg(0),
                 bias_regularizer=DynamReg(0),
                 activity_regularizer=DenPen(self.divThreshold),
-                kernel_constraint=ConL0(wZeros),
-                bias_constraint=ConL0(bZeros),
+                kernel_constraint=ConstantL0(wZeros),
+                bias_constraint=ConstantL0(bZeros),
                 )(self.layers[numKerLay-3])
 
             # Division final layer component
@@ -589,10 +617,12 @@ class EQLDIV:
             K.set_value(self.model.layers[i].kernel_constraint.toZero,
                         np.less(np.abs(weight),
                                 np.full(weight.shape, normThreshold)))
+            print(
+                np.less(np.abs(weight), np.full(weight.shape, normThreshold)))
             K.set_value(self.model.layers[i].bias_constraint.toZero,
                         np.less(np.abs(bias),
                                 np.full(bias.shape, normThreshold)))
-        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
+            self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
                        batch_size=batchSize, verbose=verbose,
                        callbacks=[dynamicThreshold])
         K.set_value(self.model.layers[self.numLayers*2].threshold, 0.001)
@@ -784,6 +814,20 @@ class EQLDIV:
         # return sum of flattened layerSparsity list (number of active oututs)
         return sum([item for sublist in layerSparsity for item in sublist])
 
+    def setPipeline(self, pipeline):
+        self.pipeline = pipeline
+
+    def applyPipeline(self, x):
+        if self.pipeline is not None:
+            for op in self.pipeline:
+                x = op.transform(x)
+        return x
+
     def odecompat(self, t, x):
-        prediction = self.model.predict(np.reshape(x, (1, len(x))))
+        x = np.reshape(x, (1, -1))
+        if self.pipeline is not None:
+            for op in self.pipeline:
+                x = op.transform(x)
+
+        prediction = self.model.predict(x)
         return prediction

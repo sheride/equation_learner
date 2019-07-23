@@ -8,6 +8,7 @@ Created on Fri Jun 21 14:02:34 2019
 
 import numpy as np
 from scipy.integrate import solve_ivp as slv
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 
 """
 Helper Functions
@@ -27,8 +28,35 @@ def genNum(width):
 
 # converts an angle to be within the range [-pi, pi]
 def fixRadians(x):
-    return (x % (2*np.pi) if x % (2*np.pi) < np.pi
+    return (x % (2 * np.pi) if x % (2 * np.pi) < np.pi
             else (x % (2 * np.pi) - 2 * np.pi))
+
+"""
+Data Preparation
+
+"""
+
+
+def pipeline(model, x, rescale=True, stand=True, norm=True):
+    pipeline = []
+    if rescale:
+        mm = MinMaxScaler(feature_range=(0, 1)).fit(x)
+        x = mm.transform(x)
+        pipeline.append(mm)
+
+    if stand:
+        ss = StandardScaler().fit(x)
+        x = ss.transform(x)
+        pipeline.append(ss)
+
+    if norm:
+        n = Normalizer().fit(x)
+        x = n.transform(x)
+        pipeline.append(n)
+
+    model.setPipeline(pipeline)
+
+    return x
 
 
 """
@@ -242,7 +270,7 @@ def genDoublePendulumDiffEqData(w, n):
                            extrapolation_near_labels,
                            extrapolation_far_predictors,
                            extrapolation_far_labels])
-    np.save('DoublePendulumDiffEq_' + str(w) + '_' + str(n), all_data,
+    np.save('DoublePendulumDiffEq_' + str(w)[:1] + '_' + str(n), all_data,
             allow_pickle=False)
 
 
@@ -480,7 +508,7 @@ Regularization Demonstration R -> R Function Data
 
 
 def regDem(x):
-    return ((x * np.cos(11 * x) - 3 * x**2)
+    return ((np.cos(11 * x) - 3 * x**2)
             / (np.sin(x) + 4))
 
 

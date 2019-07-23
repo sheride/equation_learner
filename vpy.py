@@ -10,6 +10,7 @@ from . import ode
 import vpython as vp
 from vpython import vector as vec
 from vpython.no_notebook import stop_server
+import numpy as np
 
 # from https://trinket.io/glowscript/9bdab2cf88:
 #
@@ -24,7 +25,8 @@ def simulateDoublePendula(models, func, x0, tEnd=10, deltat=0.005):
     L1 = 1
     L2 = 1
 
-    vp.canvas(width=1400, height=750, background=vp.color.white)
+    vp.canvas(width=1400, height=750, background=vp.color.white, range=1.75,
+              autoscale=False, userpan=False, userspin=False, userzoom = False)
 
     # create the ceiling, masses, and strings
     ceiling = vp.box(pos=vec(0, 1, 0), size=vec(0.1, 0.05, 0.1),

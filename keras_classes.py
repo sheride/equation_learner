@@ -51,23 +51,23 @@ class eqlLayer(Layer):
     def call(self, x):
         # linear component
         u, v = self.nodeInfo
-        linOutput = tf.linalg.matmul(x,self.W) + self.b
+        linOutput = tf.linalg.matmul(x, self.W) + self.b
 
         # nonlinear component
         # unary functions
-        nonlinOutput = self.hypSet[self.unaryFunc[0]](linOutput[:,:1])
-        for i in range(1,u):
+        nonlinOutput = self.hypSet[self.unaryFunc[0]](linOutput[:, :1])
+        for i in range(1, u):
             nonlinOutput = tf.concat(
                     [nonlinOutput,
-                     self.hypSet[self.unaryFunc[i]](linOutput[:,i:i+1])],
+                     self.hypSet[self.unaryFunc[i]](linOutput[:, i:i+1])],
                     axis=1)
 
         # binary functions (multiplication)
         for i in range(u, u + 2 * v, 2):
             nonlinOutput = tf.concat(
                     [nonlinOutput,
-                     tf.math.multiply(linOutput[:,i:i+1],
-                                      linOutput[:,i+1:i+2])],
+                     tf.math.multiply(linOutput[:, i:i+1],
+                                      linOutput[:, i+1:i+2])],
                     axis=1)
 
         return nonlinOutput
@@ -84,22 +84,21 @@ class Nonlinear2(Layer):
     # behavior of non-linear layer
     def call(self, linOutput):
         u, v = self.nodeInfo
-        nonlinOutput = self.hypSet[self.unaryFunc[0]](linOutput[:,:1])
-        for i in range(1,u):
+        nonlinOutput = self.hypSet[self.unaryFunc[0]](linOutput[:, :1])
+        for i in range(1, u):
             nonlinOutput = tf.concat(
                     [nonlinOutput,
-                     self.hypSet[self.unaryFunc[i]](linOutput[:,i:i+1])],
+                     self.hypSet[self.unaryFunc[i]](linOutput[:, i:i+1])],
                     axis=1)
 
         for i in range(u, u + 2 * v, 2):
             nonlinOutput = tf.concat(
                     [nonlinOutput,
-                     tf.math.multiply(linOutput[:,i:i+1],
-                                      linOutput[:,i+1:i+2])],
+                     tf.math.multiply(linOutput[:, i:i+1],
+                                      linOutput[:, i+1:i+2])],
                     axis=1)
 
         return nonlinOutput
-
 
     # returns the shape of a non-linear layer using the nodeInfo list
     def compute_output_shape(self, input_shape):
@@ -173,6 +172,7 @@ class Nonlinear(Layer):
     # returns the shape of a non-linear layer using the nodeInfo list
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.nodeInfo[0] + self.nodeInfo[1])
+
 
 class Division(Layer):
     # initializing with values
@@ -266,9 +266,8 @@ class DenominatorPenalty(keras.regularizers.Regularizer):
 
     def __call__(self, x):
         x = tf.reshape(x, (-1, 2))
-        x = tf.transpose(x)
         output = K.sum(K.maximum(self.divThreshold - x, K.zeros_like(x)),
-                       axis=1)[1]
+                       axis=0)[1]
         return output
 
     def get_config(self):
