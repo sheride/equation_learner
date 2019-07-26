@@ -104,12 +104,14 @@ def plotTogether(inputSize, outputSize, models, function, xmin, xmax, ymin,
     # msuBlue = (144/255, 154/255, 184/255)
     # msuTan = (232/255, 217/255, 181/255)
     msuCyan = (0, 129/255, 131/255)
-    colors = [msuGray, msuCyan, msuOrange, msuPurple,
-              'purple', 'black', 'pink', 'brown']
+    colors = [msuGray, msuOrange, msuPurple, msuCyan, 'purple', 'black',
+              'pink', 'brown']
 
     # creating subplots
-    titlefont = {'family': 'sans-serif', 'weight': 'bold', 'size': 72, 'color': msuGreen}
-    labelfont = {'family': 'serif', 'weight': 'bold', 'size': 48, 'color': msuGreen}
+    titlefont = {'family': 'sans-serif', 'weight': 'bold', 'size': 72,
+                 'color': msuGreen}
+    labelfont = {'family': 'serif', 'weight': 'bold', 'size': 48,
+                 'color': msuGreen}
     tickfont = {'size': 24, 'color': msuGreen}
 
     fig, axs = plt.subplots(outputSize, figsize=(width, height))
@@ -294,7 +296,6 @@ class EQL:
                                 np.full(weight.shape, threshold)))
             K.set_value(self.model.layers[i].bias_constraint.toZero,
                         np.less(np.abs(bias), np.full(bias.shape, threshold)))
-#            print(self.model.layers[i].kernel_constraint.toZero.eval(session=K.get_session()))
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
                        batch_size=batchSize, verbose=verbose)
 
@@ -578,22 +579,30 @@ class EQLDIV:
 
     def fit(self, predictors, labels, numEpoch, regStrength, batchSize=20,
             normThreshold=0.001, verbose=0):
+        n = self.numLayers*2
+        # PHASE 1: NO REGULARIZATION (T/4)
         dynamicThreshold = LambCall(
             on_epoch_begin=lambda epoch, logs: K.set_value(
-                self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(
+                self.model.layers[n].threshold, 1 / np.sqrt(
                     epoch + 1)))
-
-        # PHASE 1: NO REGULARIZATION (T/4)
+        dynamicThreshold2 = LambCall(
+            on_epoch_begin=lambda epoch, logs: K.set_value(
+                self.model.layers[n-1].activity_regularizer.divThreshold,
+                1 / np.sqrt(epoch + 1)))
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/4)),
                        batch_size=batchSize, verbose=verbose,
-                       callbacks=[dynamicThreshold])
-        dynamicThreshold = LambCall(
-            on_epoch_begin=lambda epoch, logs: K.set_value(
-                self.model.layers[self.numLayers * 2].threshold, 1 / np.sqrt(
-                    int(numEpoch * (1 / 4))
-                    + epoch + 1)))
+                       callbacks=[dynamicThreshold, dynamicThreshold2])
 
         # PHASE 2: REGULARIZATION (7T/10)
+        dynamicThreshold = LambCall(
+            on_epoch_begin=lambda epoch, logs: K.set_value(
+                self.model.layers[n].threshold, 1 / np.sqrt(
+                    int(numEpoch * (1 / 4)) + epoch + 1)))
+        dynamicThreshold2 = LambCall(
+            on_epoch_begin=lambda epoch, logs:
+            K.set_value(
+                self.model.layers[n-1].activity_regularizer.divThreshold,
+            1 / np.sqrt(int(numEpoch * (1 / 4)) + epoch + 1)))
         for i in range(1, len(self.model.layers), 2):
             K.set_value(self.model.layers[i].kernel_regularizer.l1,
                         regStrength)
@@ -601,15 +610,23 @@ class EQLDIV:
                         regStrength)
         self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)),
                        batch_size=batchSize, verbose=verbose,
-                       callbacks=[dynamicThreshold])
+                       callbacks=[dynamicThreshold, dynamicThreshold2])
+
+
+        # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION (T/20)
         dynamicThreshold = LambCall(
             on_epoch_begin=lambda epoch, logs: K.set_value(
-                self.model.layers[self.numLayers*2].threshold, 1 / np.sqrt(
+                self.model.layers[n].threshold, 1 / np.sqrt(
                     int(numEpoch * (1 / 4))
                     + int(numEpoch * (7 / 10))
                     + epoch + 1)))
-
-        # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION (T/20)
+        dynamicThreshold2 = LambCall(
+            on_epoch_begin=lambda epoch, logs: K.set_value(
+                self.model.layers[n-1].activity_regularizer.divThreshold,
+                1 / np.sqrt(
+                    int(numEpoch * (1 / 4))
+                    + int(numEpoch * (7 / 10))
+                    + epoch + 1)))
         for i in range(1, len(self.model.layers), 2):
             K.set_value(self.model.layers[i].kernel_regularizer.l1, 0)
             K.set_value(self.model.layers[i].bias_regularizer.l1, 0)
@@ -617,14 +634,12 @@ class EQLDIV:
             K.set_value(self.model.layers[i].kernel_constraint.toZero,
                         np.less(np.abs(weight),
                                 np.full(weight.shape, normThreshold)))
-            print(
-                np.less(np.abs(weight), np.full(weight.shape, normThreshold)))
             K.set_value(self.model.layers[i].bias_constraint.toZero,
                         np.less(np.abs(bias),
                                 np.full(bias.shape, normThreshold)))
-            self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
+        self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
                        batch_size=batchSize, verbose=verbose,
-                       callbacks=[dynamicThreshold])
+                       callbacks=[dynamicThreshold, dynamicThreshold2])
         K.set_value(self.model.layers[self.numLayers*2].threshold, 0.001)
 
     def evaluate(self, predictors, labels, batchSize=10, verbose=0):

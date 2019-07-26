@@ -262,7 +262,7 @@ class ConstantL0(keras.constraints.Constraint):
 
 class DenominatorPenalty(keras.regularizers.Regularizer):
     def __init__(self, divThreshold=0.001):
-        self.divThreshold = divThreshold
+        self.divThreshold = K.variable(divThreshold, name='divThreshold')
 
     def __call__(self, x):
         x = tf.reshape(x, (-1, 2))

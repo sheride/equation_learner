@@ -11,6 +11,62 @@ import vpython as vp
 from vpython import vector as vec
 from vpython.no_notebook import stop_server
 import numpy as np
+from scipy.integrate import solve_ivp
+
+def justOne(func, x0, tEnd=10, deltat=0.005):
+    # constants
+    t = 0
+
+    theta1, omega1, theta2, omega2 = x0
+    L1 = 1
+    L2 = 1
+
+    vp.canvas(width=1400, height=750, background=vp.color.white, range=1.75,
+              autoscale=False, userpan=False, userspin=False, userzoom = False)
+
+    # create the ceiling, masses, and strings
+    ceiling = vp.box(pos=vec(0, 1, 0), size=vec(0.1, 0.05, 0.1),
+                     color=vp.color.gray(0.5))
+
+    rball1 = vp.sphere(
+        pos=vec(ceiling.pos.x+L1*vp.sin(theta1),
+                ceiling.pos.y-L1*vp.cos(theta1), 0),
+        radius=0.05, color=vp.color.orange)
+    rball1.color = vp.color.black
+    rball1.radius = 0.05
+    rball2 = vp.sphere(
+        pos=vec(ceiling.pos.x+L1*vp.sin(theta1)+L2*vp.sin(theta2),
+                ceiling.pos.y-L1*vp.cos(theta1)-L2*vp.cos(theta2),
+                0),
+        radius=0.05, color=vp.color.black, make_trail=True, interval=10,
+        retain=15)
+    rball2.color = vp.color.black
+    rball2.radius = 0.05
+    rstring1 = vp.cylinder(pos=ceiling.pos, axis=rball1.pos-ceiling.pos,
+                           color=vp.color.gray(0.5), radius=0.008)
+    rstring2 = vp.cylinder(pos=rball1.pos, axis=rball2.pos-rball1.pos,
+                           color=vp.color.gray(0.5), radius=0.008)
+
+    actualSol = solve_ivp(func, [0, tEnd], x0,
+                          t_eval=np.linspace(0, tEnd, int(tEnd/deltat)))
+
+    # calculation loop
+    while t < tEnd / deltat:
+        vp.rate(1/deltat)
+
+        rball1.pos = vec(vp.sin(actualSol.y[0][t]),
+                         -vp.cos(actualSol.y[0][t]),
+                         0) + ceiling.pos
+        rstring1.axis = rball1.pos - ceiling.pos
+        rball2.pos = rball1.pos + vec(vp.sin(actualSol.y[2][t]),
+                                      -vp.cos(actualSol.y[2][t]),
+                                      0)
+        rstring2.axis = rball2.pos - rball1.pos
+        rstring2.pos = rball1.pos
+
+        t = t + 1
+
+    stop_server()
 
 # from https://trinket.io/glowscript/9bdab2cf88:
 #
@@ -36,15 +92,15 @@ def simulateDoublePendula(models, func, x0, tEnd=10, deltat=0.005):
         pos=vec(ceiling.pos.x+L1*vp.sin(theta1),
                 ceiling.pos.y-L1*vp.cos(theta1), 0),
         radius=0.05, color=vp.color.orange)
-    rball1.color = vp.color.cyan
+    rball1.color = vp.color.black
     rball1.radius = 0.05
     rball2 = vp.sphere(
         pos=vec(ceiling.pos.x+L1*vp.sin(theta1)+L2*vp.sin(theta2),
                 ceiling.pos.y-L1*vp.cos(theta1)-L2*vp.cos(theta2),
                 0),
-        radius=0.05, color=vp.color.cyan, make_trail=True, interval=10,
+        radius=0.05, color=vp.color.black, make_trail=True, interval=10,
         retain=15)
-    rball2.color = vp.color.cyan
+    rball2.color = vp.color.black
     rball2.radius = 0.05
     rstring1 = vp.cylinder(pos=ceiling.pos, axis=rball1.pos-ceiling.pos,
                            color=vp.color.gray(0.5), radius=0.008)
@@ -53,7 +109,8 @@ def simulateDoublePendula(models, func, x0, tEnd=10, deltat=0.005):
 
     balls = [None for i in range(len(models) * 2)]
     strings = [None for i in range(len(models) * 2)]
-    colors = [vp.color.magenta, vp.color.red, vp.color.orange, vp.color.yellow]
+    colors = [vec(240/255, 133/255, 33/255), vec(110/255, 0, 95/255),
+              vec(0, 129/255, 131/255)]
 
     for i in range(0, len(balls), 2):
         balls[i] = vp.sphere(
