@@ -16,39 +16,6 @@ from .keras_classes import ConstantL0
 from .keras_classes import DenominatorPenalty as DenPen
 
 """
-Hypothesis Set Functions
-
-"""
-
-
-# identity map
-def f1(x):
-    return x
-
-
-# sine function
-def f2(x):
-    return tf.math.sin(x)
-
-
-# cosine function
-def f3(x):
-    return tf.math.cos(x)
-
-
-# sigmoid/logistic function
-def f4(x):
-    return 1 / (1 + tf.math.exp(-1 * x))
-
-
-# division with threshold (0.001)
-def f5(x):
-    return tf.where(K.less(x, K.zeros_like(x)+0.001),
-                    K.zeros_like(x),
-                    K.pow(x, -1))
-
-
-"""
 EQL/EQL-div Helper Functions
 
 """
@@ -197,7 +164,7 @@ class EQL:
             R -> R function to be applied element-wise in nonlinear layer
             components, second element is the corresponding sympy function for
             use in printing out learned equations. In practice, usually
-            contains identity, sine, cosine, and sigmoid.
+            contains identity, sine, cosine, and sigmoid. (NOT COMPLETELY IMPLEMENTED)
         nonlinearInfo: list with rows equal to number of hidden layers and 2
             columns. First column is number of unary functions in each hidden
             layer, second column is number of binary functions in each hidden
@@ -517,7 +484,7 @@ class EQLDIV:
             R -> R function to be applied element-wise in nonlinear layer
             components, second element is the corresponding sympy function for
             use in printing out learned equations. In practice, usually
-            contains identity, sine, cosine, and sigmoid.
+            contains identity, sine, cosine, and sigmoid. (NOT COMPLETELY IMPLEMENTED)
         nonlinearInfo: list with rows equal to number of hidden layers and 2
             columns. First column is number of unary functions in each hidden
             layer, second column is number of binary functions in each hidden
