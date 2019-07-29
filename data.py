@@ -579,14 +579,85 @@ def genDoublePendulumTimeseries(E, n, c, step):
     labels = np.transpose(doublePendulumDerivatives(data))
     data = np.transpose(data)
 
+    rng_state = np.random.get_state()
     np.random.shuffle(data)
+    np.random.set_state(rng_state)
     np.random.shuffle(labels)
 
     all_data = np.asarray([data, labels])
 
-    np.save(
-        'DoublePendulumTimeseries_{}_{}_{}_{}'.format(str(E),
-                                                      str(n),
-                                                      str(c),
-                                                      str(step)),
-        all_data, allow_pickle=False)
+    np.save('DoublePendulumTimeseries_{}_{}_{}_{}'.format(str(E),
+                                                          str(n),
+                                                          str(c),
+                                                          str(step)),
+            all_data, allow_pickle=False)
+
+
+def randomDPEnergyState(E, maxAngle, maxVel):
+    x0 = [0, 0, 0, 0]
+
+    while x0[3] == 0:
+        g = 9.8
+        sign = genSign()
+        t1 = np.random.uniform(0.5 * sign * maxAngle, sign * maxAngle)
+        sign = genSign()
+        t2 = np.random.uniform(0.5 * sign * maxAngle, sign * maxAngle)
+        w1 = np.random.uniform(0, maxVel/2)
+        disc = 4*E + 8*g*np.cos(t1) + 4*g*np.cos(t2) - 3*w1**2 + w1**2*np.cos(2*t1 - 2*t2)
+        if disc > 0:
+            w2 = -w1*np.cos(t1 - t2) - np.sqrt(0.5 * disc)
+        else:
+            w2 = 0
+        x0 = [t1, w1, t2, w2]
+
+    return x0
+
+
+def genDoublePendulumTimeseriesRandom(E, n, c, step):
+    g = 9.8
+    t_eval = np.linspace(0, int((n * step)/(2*c)), int(n/(2*c)))
+    maxAngle = np.arccos(-E / (3*g))
+    maxVel = np.sqrt((E + 3*g) / (5/2))
+    xs = []
+    for i in range(c):
+        xs.append(randomDPEnergyState(E, maxAngle, maxVel))
+
+    sols = []
+    for x in xs:
+        sols.append(slv(doublePendulumDerivativesSolver,
+                        [0, len(t_eval) * step],
+                        x,
+                        t_eval=t_eval).y)
+
+    data = np.concatenate(tuple(sols), axis=1)
+
+    labels = np.transpose(doublePendulumDerivatives(data))
+    data = np.transpose(data)
+
+    rng_state = np.random.get_state()
+    np.random.shuffle(data)
+    np.random.set_state(rng_state)
+    np.random.shuffle(labels)
+
+    all_data = np.asarray([data, labels])
+
+    np.save('DoublePendulumTimeseriesRandom_{}_{}_{}_{}'.format(str(E),
+                                                                str(n),
+                                                                str(c),
+                                                                str(step)),
+            all_data, allow_pickle=False)
+
+def genDoublePendulumConstEnergy(E, n):
+    g = 9.8
+    maxAngle = np.arccos(-E / (3*g))
+    maxVel = np.sqrt((E + 3*g) / (5/2))
+    data = []
+    for i in range(n):
+        data.append(randomDPEnergyState(E, maxAngle, maxVel))
+
+    labels = np.transpose(doublePendulumDerivatives(np.transpose(data)))
+
+    all_data = np.asarray([data, labels])
+
+    np.save('DoublePendulumConstEnergys_{}_{}'.format(str(E), str(n)),
+            all_data, allow_pickle=False)

@@ -55,6 +55,24 @@ EQL/EQL-div Helper Functions
 
 
 def getNonlinearInfo(numHiddenLayers, numBinary, unaryPerBinary):
+    """
+    Generates a 2D list to be used as a nonlinearInfo argument in building an
+    EQL/EQL-div model
+
+    # Arguments
+        numHiddenLayers: integer, number of hidden layers (i.e. layers
+            including nonlinear keras layer components)
+        numBinary: list of integers, available numbers to be used as number of
+            binary functions in a nonlinear layer component
+        unaryPerBinary: integer, number of unary function per binary function
+            in a nonlinear layer component
+
+    # Returns
+        A 2D list of integers with dimension numHiddenLayers x 2. Rows
+        represent layers, first column is number of unary functions, second
+        column is number of binary functions
+    """
+
     nonlinearInfo = [0 for i in range(numHiddenLayers)]
     for i in range(numHiddenLayers):
         v = np.random.choice(numBinary)  # binary nodes
@@ -63,13 +81,21 @@ def getNonlinearInfo(numHiddenLayers, numBinary, unaryPerBinary):
     return nonlinearInfo
 
 
-# Root mean squared loss
 def rmse(y_true, y_pred):
     return K.sqrt(K.mean(K.square(y_pred - y_true)))
 
 
 # NOT MINE: function for making n x m matrix of symbols
 def make_symbolic(n, m):
+    """
+    Generates a sympy matrix full of numbered variables. Not original: taken
+    from Andrew Walker's post at https://stackoverflow.com/questions/23208838/
+    sympy-substitute-sybolic-entries-in-a-matrix
+
+    # Arguments
+        n, m: number of rows, columns in matrix, respectively
+    """
+
     rows = []
     for i in range(n):
         col = []
@@ -79,92 +105,78 @@ def make_symbolic(n, m):
     return sympy.Matrix(rows)
 
 
-def plotTogether(inputSize, outputSize, models, function, xmin, xmax, ymin,
-                 ymax, step, width=10, height=10, save=False, legNames=None,
-                 name='EQL', title='Title', xlabel='X-Axis', ylabel='Y-Axis'):
+def plotTogether(inputSize, outputSize, models, function, settings=dict(),
+                 xmin=-2, xmax=2, step=0.01, colors=None,
+                 width=10, height=10, save=False, legNames=None, name='EQL',
+                 title='Title', xlabel='X-Axis', ylabel='Y-Axis',
+                 titlefont=dict(), labelfont=dict(), tickfont=dict()):
+    """
+    Behaves like the plotSlice EQL/EQL-div class function, but can plot
+    multiple models' learned functions on the same axes
+
+    # Arguments
+        inputSize: number of input variables to each model
+        outputSize: number of output variables from each model (number of
+            subplots)
+        models: list of trained EQL/EQL-div models with same input/output
+            sizes
+        function: python function taking input of a list with length inputSize
+            and outputs a list with length outputSize, represents the goal
+            function
+        settings: plt.rc_context dictionary to be used for visual settings
+        xmin, xmax: minimum/maximum x-coordinates to be graphed
+        step: x-axis spacing between sampled functional values
+        colors: list of tuples containing normalized RGB values to be used as
+            the colors of the plotted learned model functions
+        width, height: dimensions of matplotlib plot
+        save: boolean, indicates whether or not the plot should be saved to a
+            .png file
+        legNames: list of strings with same length as models, provides names of
+            each of the models to be used for matplotlib legend
+        name: name of saved .png file, if save == True
+        title: string, title of matplotlib plot
+        xlabel, ylabel: list of strings with length outputSize, matplotlib axes
+            labels
+
+    """
 
     # x values
-    X = np.asarray([[(i * step) + xmin
-                     for j in range(int(inputSize))]
-                   for i in range(int((xmax - xmin)/step))])
+    X = np.asarray(
+            [[(i * step) + xmin for i in range(int((xmax - xmin)/step))]
+                for j in range(inputSize)])
     # goal function values
-    F_Y = np.apply_along_axis(function, 1, X)
+    F_Y = np.apply_along_axis(function, 0, X)
     # model predictions
-    models_Y = [model.model.predict(X) for model in models]
+    models_Y = [model.model.predict(np.transpose(X)) for model in models]
+    models_Y = np.transpose(models_Y, [0, 2, 1])
 
-    # reshaping
-    X = np.transpose(X)
-
-    # graph colors
-    msuGray = (153/255, 162/255, 162/255)
-    msuGreen = (24/255, 69/255, 59/255)
-    # msuYellow = (209/255, 202/255, 63/255)
-    msuOrange = (240/255, 133/255, 33/255)
-    msuPurple = (110/255, 0, 95/255)
-    # msuBlue = (144/255, 154/255, 184/255)
-    # msuTan = (232/255, 217/255, 181/255)
-    msuCyan = (0, 129/255, 131/255)
-    colors = [msuGray, msuOrange, msuPurple, msuCyan, 'purple', 'black',
-              'pink', 'brown']
-
-    # creating subplots
-    titlefont = {'family': 'sans-serif', 'weight': 'bold', 'size': 72,
-                 'color': msuGreen}
-    labelfont = {'family': 'serif', 'weight': 'bold', 'size': 48,
-                 'color': msuGreen}
-    tickfont = {'size': 24, 'color': msuGreen}
-
-    fig, axs = plt.subplots(outputSize, figsize=(width, height))
-    fig.suptitle(title, **titlefont)
-    axs.spines['top'].set_linewidth(4)
-    axs.spines['right'].set_linewidth(4)
-    axs.spines['bottom'].set_linewidth(4)
-    axs.spines['left'].set_linewidth(4)
-    axs.spines['top'].set_color(msuGreen)
-    axs.spines['right'].set_color(msuGreen)
-    axs.spines['bottom'].set_color(msuGreen)
-    axs.spines['left'].set_color(msuGreen)
-    axs.set_xticks([-1, 1], minor=False)
-    axs.set_xticks([-2, 0, 2], minor=True)
-    axs.set_yticks([0, -1, -2, -3], minor=False)
-    axs.xaxis.grid(True, which='major', linewidth='4', color=msuGreen,
-                   linestyle=':')
-    plt.xlabel(xlabel, labelpad=20, **labelfont)
-    plt.ylabel(ylabel, labelpad=20, **labelfont)
-    plt.yticks(**tickfont)
-    plt.xticks(**tickfont)
-    plt.ylim(ymin, ymax)
-    plt.xlim(xmin, xmax)
-    plt.tick_params(axis='both', which='major', labelsize=30, color=msuGreen)
-    axs.tick_params(length=15, width=2, which='both', color=msuGreen)
-
-    lines = [0 for i in range(len(models) + 1)]
+    if colors is None:
+        colors = ['red', 'blue', 'purple', 'black', 'pink', 'brown']
     if legNames is None:
         legNames = tuple('Model ' + str(i+1) for i in range(len(models)))
 
-    # graphing
-    if outputSize == 1:
-        lines[0], = axs.plot(X[0], F_Y, color=colors[0], linewidth=10,
-                             linestyle='-', label='Function')
-        for j in range(len(models)):
-            lines[j+1], = axs.plot(X[0], models_Y[j], color=colors[j+1],
-                                   linewidth=5, linestyle='--', label='model')
-        plt.legend(lines, legNames, fontsize=36)
-    else:
-        F_Y = np.transpose(F_Y)
-        for j in range(len(models)):
-            models_Y[j] = np.transpose(models_Y[j])
-            for i in range(outputSize):
-                if j == 0:
-                    axs[i].plot(X[0], F_Y[i], color=colors[0], linewidth=1,
-                                linestyle='-', label='Function')
+    settings['figure.figsize'] = (width, height)
+    with plt.rc_context(settings):
+        fig, axs = plt.subplots(outputSize, figsize=(width, height))
+
+        if outputSize == 1:
+            axs = [axs]
+
+        fig.suptitle(title)
+
+        for i in range(outputSize):
+            axs[i].plot(X[0], F_Y[i], color=colors[0], linestyle='-',
+                        label='Goal Function')
+            axs[i].set_xlabel(xlabel)
+            axs[i].set_ylabel(ylabel)
+            for j in range(len(models_Y)):
                 axs[i].plot(X[0], models_Y[j][i], color=colors[j+1],
-                            linewidth=2.5, linestyle=':', label='model')
+                            linestyle=':', label=legNames[j])
+
+        plt.legend()
 
     if save:
         plt.savefig(name + '.png', bbox_inches='tight', dpi=300)
-
-    plt.close()
 
 
 class EQL:
@@ -194,7 +206,7 @@ class EQL:
 
     # References
         - [Extrapolation and learning equations](
-           https://arxiv.org/abs/1610.02995)
+        https://arxiv.org/abs/1610.02995)
 
     """
 
@@ -271,6 +283,23 @@ class EQL:
 
     def fit(self, predictors, labels, numEpoch, reg, batchSize=20,
             threshold=0.1, verbose=0):
+        """
+        Trains EQL model on a dataset following the training schedule defined
+        in the reference.
+
+        # Arguments
+            predictors: ? x inputSize array containing data to be trained on
+            labels: ? x outputSize array containing corresponding correct
+                output for predictors, compared with model output
+            numEpoch: integer, number of epochs
+            reg: regularization (in the range [10^-4, 10^-2.5] is usually
+                ideal)
+            batchSize: number of datapoints trained on per gradient descent
+                update
+            threshold: float, weight/bias elements below this value are kept
+                at zero during the final training phase
+        """
+
         # PHASE 1: NO REGULARIZATION (T/4)
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/4)),
                        batch_size=batchSize, verbose=verbose)
@@ -300,11 +329,17 @@ class EQL:
                        batch_size=batchSize, verbose=verbose)
 
     def evaluate(self, predictors, labels, batchSize=10, verbose=0):
+        """
+        Evaluates trained model on data
+        """
         return self.model.evaluate(predictors, labels, batch_size=batchSize,
                                    verbose=verbose)[1]
 
-    # function for retrieving a model's intrinsic equation
     def getEquation(self):
+        """
+        Prints learned equation of a trained model.
+        """
+
         # prepares lists for weights and biases
         weights = [0 for i in range(int(len(self.model.get_weights())/2))]
         bias = [0 for i in range(int(len(self.model.get_weights())/2))]
@@ -361,56 +396,47 @@ class EQL:
 
         return X
 
-    def plotSlice(self, function, xmin, xmax, step, width=10, height=10,
-                  save=False):
+    def plotSlice(self, function, xmin=-2, xmax=2, step=0.01, width=10,
+                  height=10, settings=dict(), save=False):
+        """
+        Plots the x_1 = ... = x_n slice of the learned function in each output
+        variable.
+        """
+
         # x values
-        X = np.asarray([[(i * step) + xmin
-                         for j in range(int(self.inputSize))]
-                       for i in range(int((xmax - xmin)/step))])
+        X = np.asarray(
+                [[(i * step) + xmin for i in range(int((xmax - xmin)/step))]
+                    for j in range(self.inputSize)])
         # goal function values
-        F_Y = np.apply_along_axis(function, 1, X)
+        F_Y = np.apply_along_axis(function, 0, X)
         # model predictions
-        model_Y = self.model.predict(X)
+        model_Y = self.model.predict(np.transpose(X))
+        model_Y = np.transpose(model_Y)
 
-        # reshaping
-        X = np.transpose(X)
+        settings['figure.figsize'] = (width, height)
+        with plt.rc_context(settings):
+            fig, axs = plt.subplots(self.outputSize, figsize=(width, height))
 
-        # graph colors
-        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink',
-                  'brown']
+            if self.outputSize == 1:
+                axs = [axs]
 
-        # creating subplots
-        font = {'family': 'normal', 'weight': 'bold', 'size': 22}
-
-        fig, axs = plt.subplots(self.outputSize, figsize=(width, height))
-        fig.suptitle('Title', **font)
-        plt.xlabel('X-Axis', **font)
-        plt.ylabel('Y-Axis', **font)
-        plt.xticks(fontsize=15)
-        plt.yticks(fontsize=15)
-
-        # graphing
-        if self.outputSize == 1:
-            axs.plot(X[0], F_Y, color=colors[0], linewidth=2.5, linestyle='-',
-                     label='Function')
-            axs.plot(X[0], model_Y, color=colors[0], linewidth=1.5,
-                     linestyle=':', label='model')
-        else:
-            model_Y = np.transpose(model_Y)
-            F_Y = np.transpose(F_Y)
             for i in range(self.outputSize):
-                axs[i].plot(X[0], F_Y[i], color=colors[i], linewidth=2.5,
-                            linestyle='-', label='Function')
-                axs[i].plot(X[0], model_Y[i], color=colors[i], linewidth=1.5,
-                            linestyle=':', label='model')
+                axs[i].plot(X[0], F_Y[i], linestyle='-', label='Goal Function')
+                axs[i].plot(X[0], model_Y[i], linestyle=':',
+                            label='Learned Function')
+
+            plt.legend()
 
         if save:
             plt.savefig(self.name + '.png', bbox_inches='tight', dpi=300)
 
-        plt.close()
-
     # percent error function
     def percentError(self, predictors, labels):
+        """
+        Returns the average percent error in each variable of a trained model
+        with respect to a testing data set
+        """
+
         labels = np.reshape(labels, (-1, self.outputSize))
         predictions = self.model.predict(predictors)
         error = np.divide(np.abs(predictions - labels), np.abs(labels))
@@ -419,6 +445,10 @@ class EQL:
         return error
 
     def sparsity(self, minMag=0.01):
+        """
+        Returns the sparsity of a trained model (number of active nodes)
+        """
+
         # list of lists where ith element is list containing activity (in the
         # form of a binary value) of outputs of ith layer
         layerSparsity = [[]
@@ -460,6 +490,10 @@ class EQL:
         return sum([item for sublist in layerSparsity for item in sublist])
 
     def odecompat(self, t, x):
+        """
+        Wrapper for Keras' predict function
+        """
+
         prediction = self.model.predict(np.reshape(x, (1, len(x))))
         return prediction
 
@@ -579,6 +613,25 @@ class EQLDIV:
 
     def fit(self, predictors, labels, numEpoch, regStrength, batchSize=20,
             normThreshold=0.001, verbose=0):
+        """
+        Trains EQL model on a dataset following the training schedule defined
+        in the reference.
+
+        # Arguments
+            predictors: ? x inputSize array containing data to be trained on
+            labels: ? x outputSize array containing corresponding correct
+                output for predictors, compared with model output
+            numEpoch: integer, number of epochs
+            reg: regularization (in the range [10^-4, 10^-2.5] is usually
+                ideal)
+            batchSize: number of datapoints trained on per gradient descent
+                update
+            normThreshold: float, weight/bias elements below this value are
+                kept at zero during the final training phase
+            verbose: 0, 1, or 2, determines whether Keras is silent, prints a
+                progress bar, or prints a line every epoch.
+        """
+
         n = self.numLayers*2
         # PHASE 1: NO REGULARIZATION (T/4)
         dynamicThreshold = LambCall(
@@ -602,7 +655,7 @@ class EQLDIV:
             on_epoch_begin=lambda epoch, logs:
             K.set_value(
                 self.model.layers[n-1].activity_regularizer.divThreshold,
-            1 / np.sqrt(int(numEpoch * (1 / 4)) + epoch + 1)))
+                1 / np.sqrt(int(numEpoch * (1 / 4)) + epoch + 1)))
         for i in range(1, len(self.model.layers), 2):
             K.set_value(self.model.layers[i].kernel_regularizer.l1,
                         regStrength)
@@ -611,7 +664,6 @@ class EQLDIV:
         self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)),
                        batch_size=batchSize, verbose=verbose,
                        callbacks=[dynamicThreshold, dynamicThreshold2])
-
 
         # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION (T/20)
         dynamicThreshold = LambCall(
@@ -643,11 +695,18 @@ class EQLDIV:
         K.set_value(self.model.layers[self.numLayers*2].threshold, 0.001)
 
     def evaluate(self, predictors, labels, batchSize=10, verbose=0):
+        """
+        Evaluates trained model on data
+        """
         return self.model.evaluate(predictors, labels, batch_size=batchSize,
                                    verbose=verbose)[1]
 
     # function for retrieving a model's intrinsic equation
     def getEquation(self):
+        """
+        Prints learned equation of a trained model.
+        """
+
         # prepares lists for weights and biases
         weights = [0 for i in range(int(len(self.model.get_weights())/2))]
         bias = [0 for i in range(int(len(self.model.get_weights())/2))]
@@ -717,57 +776,46 @@ class EQLDIV:
 
         return X
 
-    def plotSlice(self, function, xmin, xmax, step, width=10, height=10,
-                  save=False):
+    def plotSlice(self, function, xmin=-2, xmax=2, step=0.01, width=10,
+                  height=10, settings=dict(), save=False):
+        """
+        Plots the x_1 = ... = x_n slice of the learned function in each output
+        variable.
+        """
+
         # x values
-        X = np.asarray([[(i * step) + xmin
-                         for j in range(int(self.inputSize))]
-                       for i in range(int((xmax - xmin)/step))])
+        X = np.asarray(
+                [[(i * step) + xmin for i in range(int((xmax - xmin)/step))]
+                    for j in range(self.inputSize)])
         # goal function values
-        F_Y = np.apply_along_axis(function, 1, X)
+        F_Y = np.apply_along_axis(function, 0, X)
         # model predictions
-        model_Y = self.model.predict(X)
+        model_Y = self.model.predict(np.transpose(X))
+        model_Y = np.transpose(model_Y)
 
-        # reshaping
-        X = np.transpose(X)
+        settings['figure.figsize'] = (width, height)
+        with plt.rc_context(settings):
+            fig, axs = plt.subplots(self.outputSize, figsize=(width, height))
 
-        # graph colors
-        colors = ['red', 'blue', 'green', 'orange', 'purple', 'black', 'pink',
-                  'brown']
+            if self.outputSize == 1:
+                axs = [axs]
 
-        # creating subplots
-        font = {'family': 'normal', 'weight': 'bold', 'size': 22}
-
-        fig, axs = plt.subplots(self.outputSize, figsize=(width, height))
-        fig.suptitle('Title', **font)
-        plt.xlabel('X-Axis', **font)
-        plt.ylabel('Y-Axis', **font)
-        plt.xticks(fontsize=15)
-        plt.yticks(fontsize=15)
-
-        # graphing
-        if self.outputSize == 1:
-            axs.plot(X[0], F_Y, color=colors[0], linewidth=2.5, linestyle='-',
-                     label='Function')
-            axs.plot(X[0], model_Y, color=colors[0], linewidth=1.5,
-                     linestyle=':', label='model')
-        else:
-            model_Y = np.transpose(model_Y)
-            F_Y = np.transpose(F_Y)
             for i in range(self.outputSize):
-                axs[i].plot(X[0], F_Y[i], color=colors[i], linewidth=2.5,
-                            linestyle='-', label='Function')
-                axs[i].plot(X[0], model_Y[i], color=colors[i], linewidth=1.5,
-                            linestyle=':', label='model')
+                axs[i].plot(X[0], F_Y[i], linestyle='-', label='Goal Function')
+                axs[i].plot(X[0], model_Y[i], linestyle=':',
+                            label='Learned Function')
+
+            plt.legend()
 
         if save:
-            plt.savefig(self.name + str(np.random.randint(100)) + '.png',
-                        bbox_inches='tight', dpi=300)
+            plt.savefig(self.name + '.png', bbox_inches='tight', dpi=300)
 
-        plt.close()
-
-    # percent error function
     def percentError(self, predictors, labels):
+        """
+        Returns the average percent error in each variable of a trained model
+        with respect to a testing data set
+        """
+
         labels = np.reshape(labels, (-1, self.outputSize))
         predictions = self.model.predict(predictors)
         error = np.divide(np.abs(predictions - labels), np.abs(labels))
@@ -776,6 +824,10 @@ class EQLDIV:
         return error
 
     def sparsity(self, minMag=0.01):
+        """
+        Returns the sparsity of a trained model (number of active nodes)
+        """
+
         # list of lists where ith element is list containing activity (in the
         # form of binary value) of outputs of ith layer
         layerSparsity = [[]
@@ -830,15 +882,28 @@ class EQLDIV:
         return sum([item for sublist in layerSparsity for item in sublist])
 
     def setPipeline(self, pipeline):
+        """
+        Saves the scikit_learn pipeline used to modify training data so that
+        the same pipeline can be applied to testing data
+        """
+
         self.pipeline = pipeline
 
     def applyPipeline(self, x):
+        """
+        Applies a saved scikit_learn pipeline to a dataset
+        """
+
         if self.pipeline is not None:
             for op in self.pipeline:
                 x = op.transform(x)
         return x
 
     def odecompat(self, t, x):
+        """
+        Wrapper for Keras' predict function
+        """
+
         x = np.reshape(x, (1, -1))
         if self.pipeline is not None:
             for op in self.pipeline:

@@ -6,19 +6,43 @@ Created on Thu Jul 11 11:50:40 2019
 @author: elijahsheridan
 """
 
-from equation_learner import data as d
 import numpy as np
 from scipy.integrate import solve_ivp
 import pyvie
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
-# NOT MINE, TAKEN FROM:
-# stackoverflow.com/questions/15959819/time-series-averaging-in-numpy-python
+
 def window(size):
+    """
+    Helper function for plotting moving time averages of a dataset. Not mine:
+    taken from mtadd at
+    stackoverflow.com/questions/15959819/time-series-averaging-in-numpy-python
+    """
+
     return np.ones(size)/float(size)
 
+
 def odeSolve(models, odeFunction, initialCond, timeSpan, step):
+    """
+    Applies scipy.integrate.solve_ivp to a goal function and a list of trained
+    models for comparison/visualization purposes
+
+    # Arguments
+        models: list of trained EQL/EQL-div models
+        odeFunction: goal function
+        initialCond: list of size models[i].inputSize defining an initial
+            condition to begin integrating from
+        timeSpan: list with two elements (most likely with the first being 0)
+            indicating the range of times to integrate over
+        step: spacing between sampled functional values for goal/learned
+            functions (note: NOT the steps that solve_ivp uses)
+
+    # Returns
+        A list containing solve_ivp output for the goal function and another
+        list containing solve_ivp output for each model's learned function
+    """
+
     t_eval = [timeSpan[0] + i * step for i in
               range(int((timeSpan[1] - timeSpan[0])/step))]
     actualSol = solve_ivp(odeFunction, timeSpan, initialCond, t_eval=t_eval)
@@ -92,7 +116,7 @@ def diffPlot(actualSol, modelSol, figsize=(10, 10), ymax=3,
         for i in range(n):
             lines[i], = plt.plot(
                     actualSol.t[:-binSize],
-                    np.convolve(diff[i],window(binSize),'same')[:-binSize],
+                    np.convolve(diff[i], window(binSize), 'same')[:-binSize],
                     color=colors[i+1], linewidth=10)
 
         lines = tuple(lines)
@@ -121,24 +145,49 @@ def make2DMovie(actualSolCoords, modelSolCoords, xmin=-3, xmax=3, ymin=-3,
         movie.gather()
     movie.finalize()
 
+
 def linear(x, m, b):
+    """
+    Helper function to be used with scipy.optimize.curve_fit in order to find
+    energy drift in a learned set of physically-interpretable ODEs
+    """
+
     return m * x + b
 
-def getDPEnergyDriftAndFluc(modelSol):
-    timeseries = [[modelSol.y[i][t] for i in range(4)]
-        for t in range(len(modelSol.t))]
-    energies = np.asarray([d.doublePendulumEnergy(timeseries[t])
-        for t in range(len(timeseries))])
+
+def getEnergyDriftAndFluc(modelSol, energyFunc):
+    """
+    Returns the energy drift and energy fluctuation learned set of
+    physically-interpretable ODEs
+
+    # Arguments
+        modelSol: scipy.integrate.solve_ivp output from learned functions of an
+            EQL/EQL-div model
+        energyFunc: a python function which takes in a phase space vector
+            corresponding to the given physical system and outputs the energy
+            corresponding to that vector
+
+    # Returns
+        List containing energy drift, energy fluctuation
+    """
+
+    timeseries = [[modelSol.y[i][t] for i in range(len(modelSol.y))]
+                  for t in range(len(modelSol.t))]
+    energies = np.asarray([energyFunc(timeseries[t])
+                           for t in range(len(timeseries))])
     energiesScaled = (energies - energies[0]) / energies[0]
-#    plt.plot(modelSol.t, energiesScaled)
     fit = curve_fit(linear, modelSol.t, energiesScaled)
     fluc = np.sqrt(np.sum(np.square(energies - energies[0])))
     return [fit[0][0], fluc]
 
 
-def plotDriftAndFluc(modelSols, title='', xlabel='xaxis',
+def plotDriftAndFluc(modelSols, energyFunc, title='', xlabel='xaxis',
                      ylabel=['yaxis', 'yaxis'], names=None, name='Model',
-                     figsize=(10,10), save=False):
+                     figsize=(10, 10), save=False):
+    """
+    Plots energy drift, energy fluctuation for a list of trained models
+    """
+
     msuGray = (153/255, 162/255, 162/255)
     msuGreen = (24/255, 69/255, 59/255)
     n = len(modelSols)
@@ -175,11 +224,12 @@ def plotDriftAndFluc(modelSols, title='', xlabel='xaxis',
         orig = [i for i in range(n)]
 
         for i in range(n):
-            drifts[i], flucs[i] = getDPEnergyDriftAndFluc(modelSols[i])
+            drifts[i], flucs[i] = getEnergyDriftAndFluc(modelSols[i],
+                                                        energyFunc)
 
         ax1.scatter(orig, drifts, s=5000, c=[msuGreen], marker='s')
         ax2.scatter(orig, flucs, s=5000, c=[msuGray], marker='^')
         plt.xticks(orig, names)
 
-        if save == True:
+        if save:
             plt.savefig(name+'.png', bbox_inches='tight')

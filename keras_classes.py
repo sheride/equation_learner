@@ -6,10 +6,6 @@ Created on Fri Jun 21 13:44:11 2019
 @author: elijahsheridan
 """
 
-#
-# CUSTOM KERAS NONLINEAR MAP LAYER
-#
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -20,12 +16,11 @@ from keras.layers import Layer
 import tensorflow as tf
 
 
-"""
-WORK IN PROGRESS: COMBINED LINEAR/NONLINEAR LAYERS
-"""
-
-
 class eqlLayer(Layer):
+    """
+    WORK IN PROGRESS: COMBINED LINEAR/NONLINEAR LAYERS
+    """
+
     # initializing with values
     def __init__(self, nodeInfo, hypSet, unaryFunc, kernel_initializer=None,
                  bias_initializer=None, **kwargs):
@@ -50,11 +45,11 @@ class eqlLayer(Layer):
 
     def call(self, x):
         # linear component
-        u, v = self.nodeInfo
         linOutput = tf.linalg.matmul(x, self.W) + self.b
 
         # nonlinear component
         # unary functions
+        u, v = self.nodeInfo
         nonlinOutput = self.hypSet[self.unaryFunc[0]](linOutput[:, :1])
         for i in range(1, u):
             nonlinOutput = tf.concat(
@@ -70,16 +65,28 @@ class eqlLayer(Layer):
                                       linOutput[:, i+1:i+2])],
                     axis=1)
 
-        return nonlinOutput
 
+class Nonlinear(Layer):
+    """
+    EQL/EQL-Div Nonlinear Keras Layer
 
-class Nonlinear2(Layer):
-    # initializing with values
+    # Arguments
+        nodeInfo: a list containing two integers, the first of which gives the
+            number of unary functions in the layer, and the second of which
+            gives the number of binary functions (multiplication units) in the
+            layer
+        hypSet: a list of Python function which apply tensor-compatible,
+            element-wise, R -> R operations: the hypothesis set of the layer
+        unaryFunc: a list of integers with length nodeInfo[0], each integer
+            falls in range [0, len(hypSet) - 1], and gives the index of the
+            hypothesis set function to be used at each node
+    """
+
     def __init__(self, nodeInfo, hypSet, unaryFunc, **kwargs):
         self.nodeInfo = nodeInfo
         self.hypSet = hypSet
         self.unaryFunc = unaryFunc
-        super(Nonlinear2, self).__init__(**kwargs)
+        super(Nonlinear, self).__init__(**kwargs)
 
     # behavior of non-linear layer
     def call(self, linOutput):
@@ -105,76 +112,16 @@ class Nonlinear2(Layer):
         return (input_shape[0], self.nodeInfo[0] + self.nodeInfo[1])
 
 
-class Nonlinear(Layer):
-    # initializing with values
-    def __init__(self, nodeInfo, hypSet, unaryFunc, **kwargs):
-        self.nodeInfo = nodeInfo
-        self.hypSet = hypSet
-        self.unaryFunc = unaryFunc
-        super(Nonlinear, self).__init__(**kwargs)
-
-    # behavior of non-linear layer
-    def call(self, linOutput):
-
-        # renaming num of unary, binary functions for simplicity
-        u = self.nodeInfo[0]
-        v = self.nodeInfo[1]
-
-        # splitting input into inputs for unary, binary sections
-        unaryPart, binaryPart = tf.split(linOutput, [u, 2 * v], 1)
-
-        # handling unary part
-        # need to iterate over 'u' elements in axis '1' (the columns),
-        # reshaping to make this axis '0' (the rows)
-        unaryPart = tf.transpose(unaryPart)
-        # applying non-linear function to first row
-        unaryOutput = self.hypSet[self.unaryFunc[0]](unaryPart[0])
-        # iterating over remaning rows
-        for i in range(1, u):
-            unaryOutput = tf.concat(
-                [unaryOutput, self.hypSet[self.unaryFunc[i]](unaryPart[i])],
-                0)
-
-        # ^^concatenating non-linear function result for row 'i' to all
-        # previous results
-        # after loop, unaryOutput.shape = (?,) where ? % u = 0 (it's just one
-        # long row), this separates it out
-        unaryOutput = tf.reshape(unaryOutput, (u, -1))
-        unaryOutput = tf.transpose(unaryOutput)
-
-        # handing binary part
-        # need to iterate over '2*v' elements in axis '1' (the columns),
-        # reshaping to make this axis '0' (the rows)
-        binaryPart = tf.transpose(binaryPart)
-        # applying multiplication to first two rows
-        binaryOutput = tf.math.multiply(binaryPart[0], binaryPart[1])
-        # iterating over remaning row pairs
-        for i in range(2, v*2, 2):
-            binaryOutput = tf.concat([binaryOutput,
-                                      tf.math.multiply(binaryPart[i],
-                                                       binaryPart[i+1])],
-                                     0)
-        # ^^concatenating row multiplication result for rows 'i', 'i+1' to
-        # all previous results
-        binaryOutput = tf.reshape(binaryOutput, (v, -1))
-        # ^^after loop, binaryOutput.shape = (?,) where ? % v = 0 (it's just
-        # one long row), this separates it out
-        binaryOutput = tf.transpose(binaryOutput)
-
-        # combining unary, binary outputs
-        # concatenating unary, binary
-        nonLinOutput = tf.concat([unaryOutput, binaryOutput], 1)
-        # reshaping to proper form
-        nonLinOutput = tf.reshape(nonLinOutput, (-1, u+v))
-
-        return nonLinOutput
-
-    # returns the shape of a non-linear layer using the nodeInfo list
-    def compute_output_shape(self, input_shape):
-        return (input_shape[0], self.nodeInfo[0] + self.nodeInfo[1])
-
-
 class Division(Layer):
+    """
+    EQL-Div Division Keras Layer
+
+    # Arguments:
+        threshold: float, denominators below this value are not accepted for
+            division (0 is returned for that particular division instance
+            instead)
+    """
+
     # initializing with values
     def __init__(self, threshold, **kwargs):
         self.threshold = K.variable(threshold, name='threshold')
@@ -211,13 +158,15 @@ class Division(Layer):
     def compute_output_shape(self, input_shape):
         return (input_shape[0], int(input_shape[1]/2))
 
-#
-# CUSTOM KERAS REGULARIZATION CLASS (REGULARIZATION COEFFICIENTS AS MUTABLE
-# TENSORFLOW VARIABLES)
-#
-
 
 class DynamReg(keras.regularizers.Regularizer):
+    """
+    Dynamic Keras Regularizer
+
+    No change from Keras regularizer, except l1 and l2 are now tensorflow
+    variables which can be changed during the training schedule.
+    """
+
     def __init__(self, l1=0., l2=0.):
         # this is the important part: this has to be a variable (i.e.
         # modifiable)
@@ -238,12 +187,19 @@ class DynamReg(keras.regularizers.Regularizer):
         return {'l1': float(self.l1.eval(session=K.get_session())),
                 'l2': float(self.l2.eval(session=K.get_session()))}
 
-#
-# CUSTOM KERAS L0 NORM PRESERVATION CONSTRAINT CLASS
-#
-
 
 class ConstantL0(keras.constraints.Constraint):
+    """
+    Constant L0 Norm Keras Constraint
+
+    # Arguments
+        toZero: boolean tensor with same shape as the weights of the layer the
+            constraint is being applied to. Should contain "true" in all
+            positions where weight elements are less than the normThreshold
+            (and thus where weight elements should be set to zero to preserve
+            L0 norm)
+    """
+
     def __init__(self, toZero):
         self.toZero = K.variable(toZero, name='toZero', dtype=tf.bool)
 
@@ -255,16 +211,26 @@ class ConstantL0(keras.constraints.Constraint):
     def get_config(self):
         return {'toZero': self.toZero.eval(session=K.get_session())}
 
-#
-# CUSTOM KERAS REGULARIZATION CLASS (EQLDIV NEGATIVE DENOMINATOR PENALTY)
-#
-
 
 class DenominatorPenalty(keras.regularizers.Regularizer):
+    """
+    Denominator Penalty Keras Activity Regularizer
+
+    # Arguments
+        divThreshold: float, denominators below this number are not accepted
+        and are penalized.
+    """
+
     def __init__(self, divThreshold=0.001):
         self.divThreshold = K.variable(divThreshold, name='divThreshold')
 
     def __call__(self, x):
+        """
+        Regularization penalty:
+
+        sum of max(divThreshold - x, 0) over all denominators x
+        """
+
         x = tf.reshape(x, (-1, 2))
         output = K.sum(K.maximum(self.divThreshold - x, K.zeros_like(x)),
                        axis=0)[1]
