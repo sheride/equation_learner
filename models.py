@@ -193,10 +193,11 @@ class EQL:
             doesn't count.
         layers: list of Keras layers containing all of the layers in the
             EQL model (including the Keras Input layer).
-        hypothesisSet: list of unary (R -> R) functions (implemented using
-            Keras backend to enable element-wise application to tensors) to be
-            used for nonlinear map layers. In practice, usually contains
-            identity, sine, cosine, and sigmoid.
+        hypothesisSet: list of 2-tuples, first element of tuples is tensorflow
+            R -> R function to be applied element-wise in nonlinear layer
+            components, second element is the corresponding sympy function for
+            use in printing out learned equations. In practice, usually
+            contains identity, sine, cosine, and sigmoid.
         nonlinearInfo: list with rows equal to number of hidden layers and 2
             columns. First column is number of unary functions in each hidden
             layer, second column is number of binary functions in each hidden
@@ -512,10 +513,11 @@ class EQLDIV:
             doesn't count.
         layers: list of Keras layers containing all of the layers in the
             EQL model (including the Keras Input layer).
-        hypothesisSet: list of unary (R -> R) functions (implemented using
-            Keras backend to enable element-wise application to tensors) to be
-            used for nonlinear map layers. In practice, usually contains
-            identity, sine, cosine, and sigmoid.
+        hypothesisSet: list of 2-tuples, first element of tuples is tensorflow
+            R -> R function to be applied element-wise in nonlinear layer
+            components, second element is the corresponding sympy function for
+            use in printing out learned equations. In practice, usually
+            contains identity, sine, cosine, and sigmoid.
         nonlinearInfo: list with rows equal to number of hidden layers and 2
             columns. First column is number of unary functions in each hidden
             layer, second column is number of binary functions in each hidden

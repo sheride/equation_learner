@@ -9,7 +9,6 @@ Created on Fri Jun 21 14:02:34 2019
 import numpy as np
 from scipy.integrate import solve_ivp as slv
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
-from . import ode
 
 """
 Helper Functions
@@ -17,20 +16,30 @@ Helper Functions
 """
 
 
-# returns either 1 or -1, randomly
 def genSign():
+    """
+    Returns either 1 or -1
+    """
+
     return 1 if np.random.rand() < 0.5 else -1
 
 
-# generates a random number in [-width, width]
 def genNum(width):
+    """
+    Returns a number in the range [-width, width]
+    """
+
     return np.random.rand() * 2 * width - width
 
 
-# converts an angle to be within the range [-pi, pi]
 def fixRadians(x):
+    """
+    Converts an angle to within the range [-pi, pi]
+    """
+
     return (x % (2 * np.pi) if x % (2 * np.pi) < np.pi
             else (x % (2 * np.pi) - 2 * np.pi))
+
 
 """
 Data Preparation
@@ -154,9 +163,11 @@ def genDoublePendulumCoordinateData():
             for i in range(len(secondOutput.y[0]))]
     extrapolation_labels = [
             doublePendulumCoordinate(x) for x in extrapolation_predictors]
-    all_data = [interpolation_predictors, interpolation_labels,
-                extrapolation_predictors, extrapolation_labels]
-    np.save('DoublePendulumCoord', all_data, allow_pickle=False)
+    all_predictors = [interpolation_predictors, extrapolation_predictors]
+    all_labels = [interpolation_labels, extrapolation_labels]
+    np.save('DoublePendulumCoordPredictors', all_predictors,
+            allow_pickle=False)
+    np.save('DoublePendulumCoordLabels', all_labels, allow_pickle=False)
 
 
 """
@@ -207,15 +218,14 @@ def genFunctionData(w, n, f):
             for i in range(int(n/2))]
     extrapolation_far_labels = [
             f(extrapolation_far_predictors[i]) for i in range(int(n/2))]
-    all_data = np.asarray([training_predictors,
-                           training_labels,
-                           interpolation_predictors,
-                           interpolation_labels,
-                           extrapolation_near_predictors,
-                           extrapolation_near_labels,
-                           extrapolation_far_predictors,
-                           extrapolation_far_labels])
-    np.save('FunctionData_' + str(w) + '_' + str(n), all_data,
+    all_predictors = [training_predictors, interpolation_predictors,
+                      extrapolation_near_predictors,
+                      extrapolation_far_predictors]
+    all_labels = [training_labels, interpolation_labels,
+                  extrapolation_near_labels, extrapolation_far_labels]
+    np.save('FunctionDataPredictors_' + str(w) + '_' + str(n), all_predictors,
+            allow_pickle=False)
+    np.save('FunctionDataLabels_' + str(w) + '_' + str(n), all_labels,
             allow_pickle=False)
 
 
@@ -332,15 +342,14 @@ def gen4LatticeDiffEqData(w, n):
     extrapolation_far_labels = [
             NLatticeDerivatives(extrapolation_far_predictors[i])
             for i in range(n)]
-    all_data = np.asarray([training_predictors,
-                           training_labels,
-                           interpolation_predictors,
-                           interpolation_labels,
-                           extrapolation_near_predictors,
-                           extrapolation_near_labels,
-                           extrapolation_far_predictors,
-                           extrapolation_far_labels])
-    np.save('NLatticeDiffEq_' + str(w) + '_' + str(n), all_data,
+    all_predictors = [training_predictors, interpolation_predictors,
+                      extrapolation_near_predictors,
+                      extrapolation_far_predictors]
+    all_labels = [training_labels, interpolation_labels,
+                  extrapolation_near_labels, extrapolation_far_labels]
+    np.save('NLatticeDiffEqPredictors_' + str(w) + '_' + str(n),
+            all_predictors, allow_pickle=False)
+    np.save('NLatticeDiffEqLabels_' + str(w) + '_' + str(n), all_labels,
             allow_pickle=False)
 
 
@@ -355,35 +364,36 @@ def divisionFunction(x):
 
 
 def genDivisionFunctionData(w, n):
-    training_predictors = [[genNum(w) for j in range(2)] for i in range(n)]
-    training_labels = [
-            divisionFunction(training_predictors[i]) for i in range(n)]
-    interpolation_predictors = [
-            [genNum(w) for j in range(2)] for i in range(n)]
-    interpolation_labels = [
+    training_predictors = np.asarray([[genNum(w) for j in range(2)]
+                                      for i in range(n)])
+    training_labels = np.asarray([
+            divisionFunction(training_predictors[i]) for i in range(n)])
+    interpolation_predictors = np.asarray([
+            [genNum(w) for j in range(2)] for i in range(n)])
+    interpolation_labels = np.asarray([
             divisionFunction(interpolation_predictors[i])
-            for i in range(n)]
-    extrapolation_near_predictors = [
+            for i in range(n)])
+    extrapolation_near_predictors = np.asarray([
             [genNum(w/4) + genSign() * (5 * w/4) for j in range(2)]
-            for i in range(n)]
-    extrapolation_near_labels = [
+            for i in range(n)])
+    extrapolation_near_labels = np.asarray([
             divisionFunction(extrapolation_near_predictors[i])
-            for i in range(n)]
-    extrapolation_far_predictors = [
+            for i in range(n)])
+    extrapolation_far_predictors = np.asarray([
             [genNum(w/2) + genSign() * (3 * w/2) for j in range(2)]
-            for i in range(n)]
-    extrapolation_far_labels = [
+            for i in range(n)])
+    extrapolation_far_labels = np.asarray([
             divisionFunction(extrapolation_far_predictors[i])
-            for i in range(n)]
-    all_data = np.asarray([training_predictors,
-                           training_labels,
-                           interpolation_predictors,
-                           interpolation_labels,
-                           extrapolation_near_predictors,
-                           extrapolation_near_labels,
-                           extrapolation_far_predictors,
-                           extrapolation_far_labels])
-    np.save('DivisionFunction_' + str(w) + '_' + str(n), all_data,
+            for i in range(n)])
+    all_predictors = [training_predictors, interpolation_predictors,
+                      extrapolation_near_predictors,
+                      extrapolation_far_predictors]
+    all_labels = [training_labels, interpolation_labels,
+                  extrapolation_near_labels, extrapolation_far_labels]
+
+    np.save('DivisionFunctionPredictors_' + str(w) + '_' + str(n),
+            all_predictors, allow_pickle=False)
+    np.save('DivisionFunctionLabels_' + str(w) + '_' + str(n), all_labels,
             allow_pickle=False)
 
 
@@ -396,10 +406,10 @@ Double Pendulum Differential Equation with Energy Data
 def doublePendulumEnergy(x):
     g = 9.8
     return (x[1]**2
-             + 0.5 * x[3]**2
-             + x[1] * x[3] * np.cos(x[0] - x[2])
-             - 2 * g * np.cos(x[0])
-             - g * np.cos(x[2]))
+            + 0.5 * x[3]**2
+            + x[1] * x[3] * np.cos(x[0] - x[2])
+            - 2 * g * np.cos(x[0])
+            - g * np.cos(x[2]))
 
 
 def genDoublePendulumPointEnergy(w, func):
@@ -409,8 +419,12 @@ def genDoublePendulumPointEnergy(w, func):
 
 
 def genDoublePendulumDiffEqEnergyData(w, n):
-    ext_near = lambda w : genNum(w/4) + genSign() * (5*w/4)
-    ext_far = lambda w : genNum(w/2)+genSign()*(3*w/2)
+    def ext_near(w):
+        return genNum(w/4) + genSign() * (5*w/4)
+
+    def ext_far(w):
+        return genNum(w/2)+genSign()*(3*w/2)
+
     training_predictors = [
             genDoublePendulumPointEnergy(w, genNum) for i in range(n)]
     training_labels = [
@@ -432,16 +446,15 @@ def genDoublePendulumDiffEqEnergyData(w, n):
     extrapolation_far_labels = [
             doublePendulumDerivatives(extrapolation_far_predictors[i])
             for i in range(n)]
-    all_data = np.asarray([training_predictors,
-                           training_labels,
-                           interpolation_predictors,
-                           interpolation_labels,
-                           extrapolation_near_predictors,
-                           extrapolation_near_labels,
-                           extrapolation_far_predictors,
-                           extrapolation_far_labels])
-    np.save('DoublePendulumDiffEqEnergy_' + str(w) + '_' + str(n), all_data,
-            allow_pickle=False)
+    all_predictors = [training_predictors, interpolation_predictors,
+                      extrapolation_near_predictors,
+                      extrapolation_far_predictors]
+    all_labels = [training_labels, interpolation_labels,
+                  extrapolation_near_labels, extrapolation_far_labels]
+    np.save('DoublePendulumDiffEqEnergyPredictors_' + str(w) + '_' + str(n),
+            all_predictors, allow_pickle=False)
+    np.save('DoublePendulumDiffEqEnergyLabels_' + str(w) + '_' + str(n),
+            all_labels, allow_pickle=False)
 
 
 """
@@ -468,8 +481,12 @@ def genDoublePendulumPointKEPE(w, func):
 
 
 def genDoublePendulumDiffEqKEPEData(w, n):
-    ext_near = lambda w : genNum(w/4) + genSign() * (5*w/4)
-    ext_far = lambda w : genNum(w/2)+genSign()*(3*w/2)
+    def ext_near(w):
+        return genNum(w/4) + genSign() * (5*w/4)
+
+    def ext_far(w):
+        return genNum(w/2)+genSign()*(3*w/2)
+
     training_predictors = [
             genDoublePendulumPointKEPE(w, genNum) for i in range(n)]
     training_labels = [
@@ -490,15 +507,14 @@ def genDoublePendulumDiffEqKEPEData(w, n):
     extrapolation_far_labels = [
             doublePendulumDerivatives(extrapolation_far_predictors[i])
             for i in range(n)]
-    all_data = np.asarray([training_predictors,
-                           training_labels,
-                           interpolation_predictors,
-                           interpolation_labels,
-                           extrapolation_near_predictors,
-                           extrapolation_near_labels,
-                           extrapolation_far_predictors,
-                           extrapolation_far_labels])
-    np.save('DoublePendulumDiffEqKEPE_' + str(w) + '_' + str(n), all_data,
+    all_predictors = [training_predictors, interpolation_predictors,
+                      extrapolation_near_predictors,
+                      extrapolation_far_predictors]
+    all_labels = [training_labels, interpolation_labels,
+                  extrapolation_near_labels, extrapolation_far_labels]
+    np.save('DoublePendulumDiffEqKEPE_' + str(w) + '_' + str(n),
+            all_predictors, allow_pickle=True)
+    np.save('DoublePendulumDiffEqKEPE_' + str(w) + '_' + str(n), all_labels,
             allow_pickle=True)
 
 
@@ -521,30 +537,31 @@ def genRegFunctionData(w, n):
             regDem(interpolation_predictors[i])
             for i in range(n)]
     extrapolation_near_predictors = [genNum(w/4) + genSign() * (5 * w/4)
-            for i in range(n)]
+                                     for i in range(n)]
     extrapolation_near_labels = [
             regDem(extrapolation_near_predictors[i])
             for i in range(n)]
     extrapolation_far_predictors = [genNum(w/2) + genSign() * (3 * w/2)
-            for i in range(n)]
+                                    for i in range(n)]
     extrapolation_far_labels = [
             regDem(extrapolation_far_predictors[i])
             for i in range(n)]
-    all_data = np.asarray([training_predictors,
-                           training_labels,
-                           interpolation_predictors,
-                           interpolation_labels,
-                           extrapolation_near_predictors,
-                           extrapolation_near_labels,
-                           extrapolation_far_predictors,
-                           extrapolation_far_labels])
-    np.save('RegDemFunction_' + str(w) + '_' + str(n), all_data,
+    all_predictors = [training_predictors, interpolation_predictors,
+                      extrapolation_near_predictors,
+                      extrapolation_far_predictors]
+    all_labels = [training_labels, interpolation_labels,
+                  extrapolation_near_labels, extrapolation_far_labels]
+    np.save('RegDemFunction_' + str(w) + '_' + str(n), all_predictors,
             allow_pickle=False)
+    np.save('RegDemFunction_' + str(w) + '_' + str(n), all_labels,
+            allow_pickle=False)
+
 
 """
 Double Pendulum Differential Equation Data (Generated by time-series for
 initial conditions with same energy)
 """
+
 
 # Energy E should fall roughly [-3g, 3g]
 # n: number of datapoints
@@ -557,7 +574,7 @@ def genDoublePendulumTimeseries(E, n, c, step):
     x0 = np.asarray([T, 0, T, 0])
     xs = [x0, -x0]
 
-    for i in range(2,int(c/2)):
+    for i in range(2, int(c/2)):
         xs.append([T/i,
                    np.sqrt(6/5) * np.sqrt(g * (np.cos(T/i) - np.cos(T))),
                    T/i,
@@ -603,7 +620,11 @@ def randomDPEnergyState(E, maxAngle, maxVel):
         sign = genSign()
         t2 = np.random.uniform(0.5 * sign * maxAngle, sign * maxAngle)
         w1 = np.random.uniform(0, maxVel/2)
-        disc = 4*E + 8*g*np.cos(t1) + 4*g*np.cos(t2) - 3*w1**2 + w1**2*np.cos(2*t1 - 2*t2)
+        disc = (4 * E
+                + 8 * g * np.cos(t1)
+                + 4 * g * np.cos(t2)
+                - 3 * w1**2
+                + w1**2 * np.cos(2*t1 - 2*t2))
         if disc > 0:
             w2 = -w1*np.cos(t1 - t2) - np.sqrt(0.5 * disc)
         else:
@@ -646,6 +667,7 @@ def genDoublePendulumTimeseriesRandom(E, n, c, step):
                                                                 str(c),
                                                                 str(step)),
             all_data, allow_pickle=False)
+
 
 def genDoublePendulumConstEnergy(E, n):
     g = 9.8

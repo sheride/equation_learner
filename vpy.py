@@ -13,7 +13,22 @@ from vpython.no_notebook import stop_server
 import numpy as np
 from scipy.integrate import solve_ivp
 
+
 def justOne(func, x0, tEnd=10, deltat=0.005):
+    """
+    Double pendulum simulation via VPython given an R^4 -> R^4 differential
+    equation (allows the testing of various such ODEs)
+
+    Adapted from https://trinket.io/glowscript/9bdab2cf88
+
+    Arguments
+        func: python function, R^4 -> R^4 system of ODEs
+        x0: list with 4 elements, initial condition to integrate from in the
+            form [theta1, omega1, theta2, omega2]
+        tEnd: time to integrate until
+        deltat: spacing between sampled functional values (note: not the step
+            the integrator uses)
+    """
     # constants
     t = 0
 
@@ -22,7 +37,7 @@ def justOne(func, x0, tEnd=10, deltat=0.005):
     L2 = 1
 
     vp.canvas(width=1400, height=750, background=vp.color.white, range=1.75,
-              autoscale=False, userpan=False, userspin=False, userzoom = False)
+              autoscale=False, userpan=False, userspin=False, userzoom=False)
 
     # create the ceiling, masses, and strings
     ceiling = vp.box(pos=vec(0, 1, 0), size=vec(0.1, 0.05, 0.1),
@@ -47,6 +62,7 @@ def justOne(func, x0, tEnd=10, deltat=0.005):
     rstring2 = vp.cylinder(pos=rball1.pos, axis=rball2.pos-rball1.pos,
                            color=vp.color.gray(0.5), radius=0.008)
 
+    # generating simulation data
     actualSol = solve_ivp(func, [0, tEnd], x0,
                           t_eval=np.linspace(0, tEnd, int(tEnd/deltat)))
 
@@ -68,13 +84,29 @@ def justOne(func, x0, tEnd=10, deltat=0.005):
 
     stop_server()
 
+
 # from https://trinket.io/glowscript/9bdab2cf88:
 #
 # double pendulum simulation
 # based of an idea from @rjallain at
 # http://www.wired.com/2009/12/pendulum-a-third-way/
 def simulateDoublePendula(models, func, x0, tEnd=10, deltat=0.005):
-    # constants
+    """
+    Multiple double pendulum simulation via VPython given an R^4 -> R^4
+    differential equation (true double pendulum ODEs) and set of trained models
+
+    Adapted from https://trinket.io/glowscript/9bdab2cf88
+
+    Arguments
+        models: list of trained EQL/EQL-div models
+        func: python function, R^4 -> R^4 system of ODEs
+        x0: list with 4 elements, initial condition to integrate from in the
+            form [theta1, omega1, theta2, omega2]
+        tEnd: time to integrate until
+        deltat: spacing between sampled functional values (note: not the step
+            the integrator uses)
+    """
+
     t = 0
 
     theta1, omega1, theta2, omega2 = x0
@@ -82,12 +114,13 @@ def simulateDoublePendula(models, func, x0, tEnd=10, deltat=0.005):
     L2 = 1
 
     vp.canvas(width=1400, height=750, background=vp.color.white, range=1.75,
-              autoscale=False, userpan=False, userspin=False, userzoom = False)
+              autoscale=False, userpan=False, userspin=False, userzoom=False)
 
     # create the ceiling, masses, and strings
     ceiling = vp.box(pos=vec(0, 1, 0), size=vec(0.1, 0.05, 0.1),
                      color=vp.color.gray(0.5))
 
+    # real double pendulum
     rball1 = vp.sphere(
         pos=vec(ceiling.pos.x+L1*vp.sin(theta1),
                 ceiling.pos.y-L1*vp.cos(theta1), 0),
@@ -107,6 +140,7 @@ def simulateDoublePendula(models, func, x0, tEnd=10, deltat=0.005):
     rstring2 = vp.cylinder(pos=rball1.pos, axis=rball2.pos-rball1.pos,
                            color=vp.color.gray(0.5), radius=0.008)
 
+    # double pendulums based on learned equations
     balls = [None for i in range(len(models) * 2)]
     strings = [None for i in range(len(models) * 2)]
     colors = [vec(240/255, 133/255, 33/255), vec(110/255, 0, 95/255),
@@ -135,6 +169,7 @@ def simulateDoublePendula(models, func, x0, tEnd=10, deltat=0.005):
                                    axis=balls[i+1].pos-balls[i].pos,
                                    color=vp.color.gray(0.5), radius=0.008)
 
+    # generating simulation data
     actualSol, modelsSol = ode.odeSolve(models, func, x0, [0, tEnd], deltat)
 
     # calculation loop

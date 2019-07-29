@@ -56,6 +56,7 @@ def odeSolve(models, odeFunction, initialCond, timeSpan, step):
 def diffPlot(actualSol, modelSol, figsize=(10, 10), ymax=3,
              name='Difference Plot', names=None, title='',
              xlabel='X-Axis', ylabel='Y-Axis'):
+
     n = len(modelSol)
 
     diff = [0 for i in range(n)]

@@ -9,7 +9,6 @@ Created on Fri Jun 21 13:44:11 2019
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
 import keras
 from keras import backend as K
 from keras.layers import Layer
@@ -114,7 +113,7 @@ class Nonlinear(Layer):
 
 class Division(Layer):
     """
-    EQL-Div Division Keras Layer
+    EQL-Div Division Keras Layer (IMPROVED??)
 
     # Arguments:
         threshold: float, denominators below this value are not accepted for
@@ -128,30 +127,13 @@ class Division(Layer):
         super(Division, self).__init__(**kwargs)
 
     def call(self, linOutput):
-        linOutputTrans = tf.transpose(linOutput)
-        divOutput = tf.where(K.less(linOutputTrans[1],
-                                    K.zeros_like(linOutputTrans[1])
-                                    + self.threshold),
-                             K.zeros_like(linOutputTrans[1]),
-                             tf.math.divide(linOutputTrans[0],
-                                            linOutputTrans[1]))
-
-        for i in range(2, linOutputTrans.shape[0], 2):
-            divOutput = tf.concat(
-                [
-                    divOutput,
-                    tf.where(
-                        K.less(linOutputTrans[i+1],
-                               K.zeros_like(linOutputTrans[i+1])
-                               + self.threshold),
-                        K.zeros_like(linOutputTrans[i+1]),
-                        tf.math.divide(linOutputTrans[i],
-                                       linOutputTrans[i+1]))], 0)
-
-        divOutput = tf.reshape(divOutput,
-                               (int(int(linOutputTrans.shape[0])/2), -1))
-        divOutput = tf.transpose(divOutput)
-
+        numerators = linOutput[:, ::2]
+        denominators = linOutput[:, 1::2]
+        # following three lines adapted from
+        # https://github.com/martius-lab/EQL_Tensorflow
+        zeros = tf.cast(denominators > self.threshold, dtype=tf.float32)
+        denominators = tf.reciprocal(tf.abs(denominators) + 1e-10)
+        divOutput = numerators * denominators * zeros
         return divOutput
 
     # returns the shape of a non-linear layer using the nodeInfo list
