@@ -1,6 +1,6 @@
 # equation-learner
 
-This is a reproduction of the EQL machine learning model and its variations [1] [2].
+This is a reproduction of the EQL machine learning model and its variations [1] [2] using Keras and Tensorflow.
 
 [1] Martius, Georg, and Christoph H. Lampert. "Extrapolation and learning equations." _arXiv preprint arXiv:1610.02995_ (2016).
 
