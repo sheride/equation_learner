@@ -9,6 +9,7 @@ Created on Fri Jun 21 14:02:34 2019
 import numpy as np
 from scipy.integrate import solve_ivp as slv
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
+import tensorflow as tf
 
 """
 Helper Functions
@@ -683,3 +684,11 @@ def genDoublePendulumConstEnergy(E, n):
 
     np.save('DoublePendulumConstEnergys_{}_{}'.format(str(E), str(n)),
             all_data, allow_pickle=False)
+
+def DPEnergyTF(x):
+    g = 9.8
+    return (tf.square(x[:, 1:2])
+            + 0.5 * tf.square(x[:, 3:4])
+            + x[:, 1:2] * x[:, 3:4] * tf.math.cos(x[:, 0:1] - x[:, 2:3])
+            - 2 * g * tf.math.cos(x[:, 0:1])
+            - g * tf.math.cos(x[:, 2:3]))

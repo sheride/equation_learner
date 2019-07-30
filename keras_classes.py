@@ -111,6 +111,43 @@ class Nonlinear(Layer):
         return (input_shape[0], self.nodeInfo[0] + self.nodeInfo[1])
 
 
+class EnergyConsReg(keras.regularizers.Regularizer):
+    """
+    Energy Conservation Keras Activity Regularizer
+
+    Penalizes a training model for the difference betwee the Hamiltonian of
+    predicted values and the actual Hamiltonian value associated with the
+    training data.
+
+    SHOULD ONLY BE USED WITH TIMESERIES DATA OR OTHER CONSTANT ENERGY DATA
+
+    Arguments
+        energyFunc: a python function which uses tensorflow methods to compute
+            the Hamiltonian associated with each member of a batch of predicted
+            state
+        energy: a float value giving the actual Hamilton of the data
+        coef: a coefficient for scaling the energy error in the loss function
+            (10^-5 recommended)
+    """
+
+    def __init__(self, energyFunc, energy, coef):
+        self.energyFunc = energyFunc
+        self.energy = energy
+        self.coef = K.variable(coef, name='energyFunc')
+
+    def __call__(self, x):
+        """
+        Adds the sum of |E_pred - E_true| for each predicted vector in
+        minibatch to the loss function
+        """
+
+        return self.coef * K.sum(tf.math.abs(self.energyFunc(x) - self.energy))
+
+    def get_config(self):
+        return {'Energy Function': self.energyFunc, 'energy': self.energy,
+                'Coefficient': self.coef}
+
+
 class Division(Layer):
     """
     EQL-Div Division Keras Layer (IMPROVED??)
@@ -119,11 +156,14 @@ class Division(Layer):
         threshold: float, denominators below this value are not accepted for
             division (0 is returned for that particular division instance
             instead)
+        loss: keras loss function to be added to global loss using
+            Layer.add_loss()
     """
 
     # initializing with values
-    def __init__(self, threshold, **kwargs):
+    def __init__(self, threshold, loss=None, **kwargs):
         self.threshold = K.variable(threshold, name='threshold')
+        self.loss = loss
         super(Division, self).__init__(**kwargs)
 
     def call(self, linOutput):
@@ -134,6 +174,9 @@ class Division(Layer):
         zeros = tf.cast(denominators > self.threshold, dtype=tf.float32)
         denominators = tf.reciprocal(tf.abs(denominators) + 1e-10)
         divOutput = numerators * denominators * zeros
+        if self.loss is not None:
+            self.add_loss(self.loss(divOutput))
+            #print(self.loss(divOutput).eval(session=K.get_session()))
         return divOutput
 
     # returns the shape of a non-linear layer using the nodeInfo list

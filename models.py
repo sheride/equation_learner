@@ -475,6 +475,15 @@ class EQLDIV:
             columns. First column is number of unary functions in each hidden
             layer, second column is number of binary functions in each hidden
             layer
+        energyInfo: if energy regularization is to be used, is a list with
+            length three containing (1) a python function which uses tensorflow
+            methods to compute the Hamiltonian associated with each member of
+            a batch of predicted state, (2) a float value giving the actual
+            Hamilton of the data (NOTE: ENERGYINFO SHOULD ONLY BE USED WITH
+            TIMESERIES DATA OR OTHER CONSTANT ENERGY DATA), and (3) a
+            coefficient for scaling the energy error in the loss function
+            (10^-5 recommended, only activated during the second training
+            phase)
         learningRate: optimizer learning rate.
         divThreshold: float, value which denominator must be greater than in
             order for division to occur (division returns 0 otherwise)
@@ -487,8 +496,8 @@ class EQLDIV:
     """
 
     def __init__(self, inputSize, outputSize, numLayers, hypothesisSet,
-                 nonlinearInfo, learningRate=0.01, divThreshold=0.001,
-                 name='EQL'):
+                 nonlinearInfo, energyInfo=None, learningRate=0.01,
+                 divThreshold=0.001, name='EQL'):
 
         self.inputSize = inputSize
         self.outputSize = outputSize
@@ -496,6 +505,7 @@ class EQLDIV:
         self.layers = [None for i in range(numLayers * 2 + 1)]
         self.hypothesisSet = hypothesisSet
         self.nonlinearInfo = nonlinearInfo
+        self.energyInfo = energyInfo
         self.learningRate = learningRate
         self.divThreshold = divThreshold
         self.name = name
@@ -553,8 +563,14 @@ class EQLDIV:
                 )(self.layers[numKerLay-3])
 
             # Division final layer component
-            self.layers[numKerLay - 1] = my.Division(
-                    self.divThreshold)(self.layers[numKerLay - 2])
+            if self.energyInfo is not None:
+                energyFunc, energy, self.coef = self.energyInfo
+                energyReg = my.EnergyConsReg(energyFunc, energy, 0)
+                self.layers[numKerLay - 1] = my.Division(
+                        self.divThreshold, energyReg)(self.layers[numKerLay - 2])
+            else:
+                self.layers[numKerLay - 1] = my.Division(
+                        self.divThreshold)(self.layers[numKerLay - 2])
 
             # Optimizer
             optimizer = keras.optimizers.Adam(lr=self.learningRate)
@@ -602,6 +618,9 @@ class EQLDIV:
                        callbacks=[dynamicThreshold, dynamicThreshold2])
 
         # PHASE 2: REGULARIZATION (7T/10)
+        if self.energyInfo is not None:
+            K.set_value(
+                    self.model.layers[self.numLayers * 2].loss.coef, self.coef)
         dynamicThreshold = LambCall(
             on_epoch_begin=lambda epoch, logs: K.set_value(
                 self.model.layers[n].threshold, 1 / np.sqrt(
