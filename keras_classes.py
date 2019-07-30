@@ -176,7 +176,6 @@ class Division(Layer):
         divOutput = numerators * denominators * zeros
         if self.loss is not None:
             self.add_loss(self.loss(divOutput))
-            #print(self.loss(divOutput).eval(session=K.get_session()))
         return divOutput
 
     # returns the shape of a non-linear layer using the nodeInfo list

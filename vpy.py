@@ -85,11 +85,6 @@ def justOne(func, x0, tEnd=10, deltat=0.005):
     stop_server()
 
 
-# from https://trinket.io/glowscript/9bdab2cf88:
-#
-# double pendulum simulation
-# based of an idea from @rjallain at
-# http://www.wired.com/2009/12/pendulum-a-third-way/
 def simulateDoublePendula(models, func, x0, tEnd=10, deltat=0.005):
     """
     Multiple double pendulum simulation via VPython given an R^4 -> R^4

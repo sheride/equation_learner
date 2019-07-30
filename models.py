@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jun 21 13:44:11 2019 ish
+
+@author: elijahsheridan
+"""
+
 from __future__ import division
 import numpy as np
 import sympy
@@ -567,7 +575,8 @@ class EQLDIV:
                 energyFunc, energy, self.coef = self.energyInfo
                 energyReg = my.EnergyConsReg(energyFunc, energy, 0)
                 self.layers[numKerLay - 1] = my.Division(
-                        self.divThreshold, energyReg)(self.layers[numKerLay - 2])
+                        self.divThreshold, energyReg)(
+                                self.layers[numKerLay - 2])
             else:
                 self.layers[numKerLay - 1] = my.Division(
                         self.divThreshold)(self.layers[numKerLay - 2])

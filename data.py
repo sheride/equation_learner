@@ -685,6 +685,7 @@ def genDoublePendulumConstEnergy(E, n):
     np.save('DoublePendulumConstEnergys_{}_{}'.format(str(E), str(n)),
             all_data, allow_pickle=False)
 
+
 def DPEnergyTF(x):
     g = 9.8
     return (tf.square(x[:, 1:2])
