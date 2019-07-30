@@ -15,11 +15,6 @@ from .keras_classes import DynamReg
 from .keras_classes import ConstantL0
 from .keras_classes import DenominatorPenalty as DenPen
 
-"""
-EQL/EQL-div Helper Functions
-
-"""
-
 
 def getNonlinearInfo(numHiddenLayers, numBinary, unaryPerBinary):
     """
@@ -160,11 +155,11 @@ class EQL:
             doesn't count.
         layers: list of Keras layers containing all of the layers in the
             EQL model (including the Keras Input layer).
-        hypothesisSet: list of 2-tuples, first element of tuples is tensorflow
-            R -> R function to be applied element-wise in nonlinear layer
-            components, second element is the corresponding sympy function for
-            use in printing out learned equations. In practice, usually
-            contains identity, sine, cosine, and sigmoid. (NOT COMPLETELY IMPLEMENTED)
+        hypothesisSet: 2 x ? list, first row contains tensorflow R -> R
+            function to be applied element-wise in nonlinear layer components,
+            second row contains the corresponding sympy functions for use in
+            printing out learned equations. In practice, usually contains
+            identity, sine, cosine, and sigmoid.
         nonlinearInfo: list with rows equal to number of hidden layers and 2
             columns. First column is number of unary functions in each hidden
             layer, second column is number of binary functions in each hidden
@@ -193,7 +188,7 @@ class EQL:
         with tf.name_scope(self.name) as scope:
             # Number of Keras layers: length of self.layers
             numKerLay = len(self.layers)
-            self.unaryFunctions = [[j % len(hypothesisSet)
+            self.unaryFunctions = [[j % len(hypothesisSet[0])
                                     for j in range(self.nonlinearInfo[i][0])]
                                    for i in range(numLayers-1)]
             self.layers[0] = Input((inputSize,), name='input')
@@ -220,7 +215,7 @@ class EQL:
                     )(self.layers[i-1])
                 # Non-linear component of layer 'i'
                 self.layers[i+1] = Nonlin(self.nonlinearInfo[int((i-1)/2)],
-                                          self.hypothesisSet,
+                                          self.hypothesisSet[0],
                                           self.unaryFunctions[int((i-1)/2)],
                                           )(self.layers[i])
             # Final layer
@@ -320,9 +315,6 @@ class EQL:
         # creates generic input vector
         X = make_symbolic(1, self.inputSize)
 
-        # defines sigmoid function
-        sigm = sympy.Function("sigm")
-
         for i in range(0, len(weights)):
             # computes the result of the next linear layer
             W = sympy.Matrix(weights[i])
@@ -336,14 +328,8 @@ class EQL:
                 # layer
                 # iterating over unary input
                 for j in range(self.nonlinearInfo[i][0]):
-                    if self.unaryFunctions[i][j] == 0:  # identity map
-                        Y[0, j] = X[0, j]
-                    elif self.unaryFunctions[i][j] == 1:
-                        Y[0, j] = sympy.sin(X[0, j])
-                    elif self.unaryFunctions[i][j] == 2:
-                        Y[0, j] = sympy.cos(X[0, j])
-                    elif self.unaryFunctions[i][j] == 3:
-                        Y[0, j] = sigm(X[0, j])
+                    Y[0, j] = self.hypothesisSet[1][self.unaryFunctions[i][j]](
+                            X[0, j])
 
                 # computes the result of the binary component of the nonlinear
                 # layer
@@ -484,7 +470,7 @@ class EQLDIV:
             R -> R function to be applied element-wise in nonlinear layer
             components, second element is the corresponding sympy function for
             use in printing out learned equations. In practice, usually
-            contains identity, sine, cosine, and sigmoid. (NOT COMPLETELY IMPLEMENTED)
+            contains identity, sine, cosine, and sigmoid.
         nonlinearInfo: list with rows equal to number of hidden layers and 2
             columns. First column is number of unary functions in each hidden
             layer, second column is number of binary functions in each hidden
@@ -518,7 +504,7 @@ class EQLDIV:
         with tf.name_scope(self.name) as scope:
             # Number of Keras layers: length of self.layers
             numKerLay = len(self.layers)
-            self.unaryFunctions = [[j % len(hypothesisSet)
+            self.unaryFunctions = [[j % len(hypothesisSet[0])
                                     for j in range(self.nonlinearInfo[i][0])]
                                    for i in range(self.numLayers-1)]
             self.layers[0] = Input((self.inputSize,), name='input')
@@ -545,7 +531,7 @@ class EQLDIV:
 
                 # Non-linear component of layer 'i'
                 self.layers[i+1] = Nonlin(self.nonlinearInfo[int((i-1)/2)],
-                                          self.hypothesisSet,
+                                          self.hypothesisSet[0],
                                           self.unaryFunctions[int((i-1)/2)],
                                           )(self.layers[i])
 
@@ -688,9 +674,6 @@ class EQLDIV:
         # creates generic input vector
         X = make_symbolic(1, self.inputSize)
 
-        # defines sigmoid function
-        sigm = sympy.Function("sigm")
-
         for i in range(0, len(weights)):
             # computes the result of the next linear layer
             W = sympy.Matrix(weights[i])
@@ -704,14 +687,8 @@ class EQLDIV:
                 # layer
                 # iterating over unary input
                 for j in range(self.nonlinearInfo[i][0]):
-                    if self.unaryFunctions[i][j] == 0:
-                        Y[0, j] = X[0, j]
-                    elif self.unaryFunctions[i][j] == 1:
-                        Y[0, j] = sympy.sin(X[0, j])
-                    elif self.unaryFunctions[i][j] == 2:
-                        Y[0, j] = sympy.cos(X[0, j])
-                    elif self.unaryFunctions[i][j] == 3:
-                        Y[0, j] = sigm(X[0, j])
+                    Y[0, j] = self.hypothesisSet[1][self.unaryFunctions[i][j]](
+                            X[0, j])
 
                 # computes the result of the binary component of the nonlinear
                 # layer
