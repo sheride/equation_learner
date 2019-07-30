@@ -181,15 +181,20 @@ class EQL:
 
     """
 
-    def __init__(self, inputSize, outputSize, numLayers, hypothesisSet,
-                 nonlinearInfo, learningRate=0.01, name='EQL'):
+    def __init__(self, inputSize, outputSize, numLayers,
+                 hypothesisSet=[[tf.identity, tf.math.sin, tf.math.cos,
+                                 tf.math.sigmoid],
+                                [sympy.Id, sympy.sin, sympy.cos,
+                                 sympy.Function("sigm")]],
+                 nonlinearInfo=None, learningRate=0.01, name='EQL'):
 
         self.inputSize = inputSize
         self.outputSize = outputSize
         self.numLayers = numLayers
         self.layers = [None for i in range(numLayers * 2)]
         self.hypothesisSet = hypothesisSet
-        self.nonlinearInfo = nonlinearInfo
+        self.nonlinearInfo = nonlinearInfo or getNonlinearInfo(
+                self.numLayers-1, [4], 4)
         self.learningRate = learningRate
         self.name = name
 
@@ -252,7 +257,7 @@ class EQL:
             # Compilation
             self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
 
-    def fit(self, predictors, labels, numEpoch, reg, batchSize=20,
+    def fit(self, predictors, labels, numEpoch, reg=10**-3, batchSize=20,
             threshold=0.1, verbose=0):
         """
         Trains EQL model on a dataset following the training schedule defined
@@ -503,8 +508,12 @@ class EQLDIV:
 
     """
 
-    def __init__(self, inputSize, outputSize, numLayers, hypothesisSet,
-                 nonlinearInfo, energyInfo=None, learningRate=0.01,
+    def __init__(self, inputSize, outputSize, numLayers,
+                 hypothesisSet=[[tf.identity, tf.math.sin, tf.math.cos,
+                                 tf.math.sigmoid],
+                                [sympy.Id, sympy.sin, sympy.cos,
+                                 sympy.Function("sigm")]],
+                 nonlinearInfo=None, energyInfo=None, learningRate=0.01,
                  divThreshold=0.001, name='EQL'):
 
         self.inputSize = inputSize
@@ -512,7 +521,8 @@ class EQLDIV:
         self.numLayers = numLayers
         self.layers = [None for i in range(numLayers * 2 + 1)]
         self.hypothesisSet = hypothesisSet
-        self.nonlinearInfo = nonlinearInfo
+        self.nonlinearInfo = nonlinearInfo or getNonlinearInfo(
+                self.numLayers-1, [4], 4)
         self.energyInfo = energyInfo
         self.learningRate = learningRate
         self.divThreshold = divThreshold
@@ -591,8 +601,8 @@ class EQLDIV:
             # Compilation
             self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
 
-    def fit(self, predictors, labels, numEpoch, regStrength, batchSize=20,
-            normThreshold=0.001, verbose=0):
+    def fit(self, predictors, labels, numEpoch, regStrength=10**-3,
+            batchSize=20, normThreshold=0.001, verbose=0):
         """
         Trains EQL model on a dataset following the training schedule defined
         in the reference.
