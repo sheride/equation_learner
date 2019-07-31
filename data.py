@@ -20,10 +20,7 @@ import tensorflow as tf
 """
 
 
-"""
-Helper Functions
-
-"""
+"""Helper Functions"""
 
 
 def genSign():
@@ -42,10 +39,7 @@ def fixRadians(x):
             else (x % (2 * np.pi) - 2 * np.pi))
 
 
-"""
-Data Preparation
-
-"""
+"""Data Preparation"""
 
 
 def pipeline(model, x, rescale=True, stand=True, norm=True):
@@ -71,10 +65,7 @@ def pipeline(model, x, rescale=True, stand=True, norm=True):
     return x
 
 
-"""
-Single Pendulum Differential Equation Data
-
-"""
+"""Single Pendulum Differential Equation Data"""
 
 
 def pendulumDerivatives(x):
@@ -126,10 +117,7 @@ def genPendulumDiffEqData(w, n):
             allow_pickle=False)
 
 
-"""
-Double Pendulum Coordinate Data
-
-"""
+"""Double Pendulum Coordinate Data"""
 
 
 def doublePendulumDerivativesSolver(t, x):
@@ -206,10 +194,7 @@ def genDoublePendulumCoordinateData():
     np.save('DoublePendulumCoordLabels', all_labels, allow_pickle=False)
 
 
-"""
-Arbitrary R^4 -> R Function Data
-
-"""
+"""Arbitrary R^4 -> R Function Data"""
 
 
 def Function1(x):
@@ -275,10 +260,7 @@ def genFunctionData(w, n, f):
             allow_pickle=False)
 
 
-"""
-Double Pendulum Differential Equation Data
-
-"""
+"""Double Pendulum Differential Equation Data"""
 
 
 def doublePendulumDerivatives(x):
@@ -343,10 +325,7 @@ def genDoublePendulumDiffEqData(w, n):
             allow_pickle=False)
 
 
-"""
-N-Lattice Differential Equation Data
-
-"""
+"""N-Lattice Differential Equation Data"""
 
 
 def NLatticeDerivativesSolver(t, x, k=([50] * 5), m=([1] * 4)):
@@ -423,10 +402,7 @@ def genNLatticeDiffEqData(w, n, N=4):
             allow_pickle=False)
 
 
-"""
-Arbitrary R^2 -> R Division Function Data
-
-"""
+"""Arbitrary R^2 -> R Division Function Data"""
 
 
 def divisionFunction(x):
@@ -478,10 +454,7 @@ def genDivisionFunctionData(w, n):
             allow_pickle=False)
 
 
-"""
-Double Pendulum Differential Equation with Energy Data
-
-"""
+"""Double Pendulum Differential Equation with Energy Data"""
 
 
 def doublePendulumEnergy(x):
@@ -561,7 +534,6 @@ def genDoublePendulumDiffEqEnergyData(w, n):
 """
 Double Pendulum Differential Equation with Kinetic Energy, Potential Energy
 Data
-
 """
 
 
@@ -644,9 +616,7 @@ def genDoublePendulumDiffEqKEPEData(w, n):
             all_labels, allow_pickle=True)
 
 
-"""
-Regularization Demonstration R -> R Function Data
-"""
+"""Regularization Demonstration R -> R Function Data"""
 
 
 def regDem(x):

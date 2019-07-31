@@ -150,7 +150,6 @@ def plotTogether(inputSize, outputSize, models, function, settings=dict(),
 
 
 class EQL:
-
     """
     EQL function learning network
 
@@ -178,7 +177,6 @@ class EQL:
     # References
         - [Extrapolation and learning equations](
         https://arxiv.org/abs/1610.02995)
-
     """
 
     def __init__(self, inputSize, outputSize, numLayers,
@@ -305,16 +303,12 @@ class EQL:
                        batch_size=batchSize, verbose=verbose)
 
     def evaluate(self, predictors, labels, batchSize=10, verbose=0):
-        """
-        Evaluates trained model on data
-        """
+        """Evaluates trained model on data"""
         return self.model.evaluate(predictors, labels, batch_size=batchSize,
                                    verbose=verbose)[1]
 
     def getEquation(self):
-        """
-        Prints learned equation of a trained model.
-        """
+        """Prints learned equation of a trained model."""
 
         # prepares lists for weights and biases
         weights = [0 for i in range(int(len(self.model.get_weights())/2))]
@@ -332,32 +326,29 @@ class EQL:
             # computes the result of the next linear layer
             W = sympy.Matrix(weights[i])
             b = sympy.Transpose(sympy.Matrix(bias[i]))
+            Y = sympy.zeros(1, b.cols)
             X = X*W + b
 
             # computes the result of the next nonlinear layer, if applicable
             if i != (len(weights) - 1):
-                Y = sympy.zeros(1, b.cols)
+                u, v = self.nonlinearInfo[i]
+
                 # computes the result of the unary component of the nonlinear
                 # layer
                 # iterating over unary input
-                for j in range(self.nonlinearInfo[i][0]):
+                for j in range(u):
                     Y[0, j] = self.hypothesisSet[1][self.unaryFunctions[i][j]](
                             X[0, j])
 
                 # computes the result of the binary component of the nonlinear
                 # layer
                 # iterating over binary input
-                for j in range(self.nonlinearInfo[i][1]):
-                    Y[0, j+self.nonlinearInfo[i][0]] = X[
-                        0, j * 2 + self.nonlinearInfo[i][0]] * X[
-                            0, j * 2 + self.nonlinearInfo[i][0] + 1]
+                for j in range(v):
+                    Y[0, j+u] = X[0, j * 2 + u] * X[0, j * 2 + u + 1]
 
                 # removes final v rows which are now outdated
-                for j in range(
-                        self.nonlinearInfo[i][0] + self.nonlinearInfo[i][1],
-                        Y.cols):
-                    Y.col_del(self.nonlinearInfo[i][0]
-                              + self.nonlinearInfo[i][1])
+                for j in range(u + v, Y.cols):
+                    Y.col_del(u + v)
 
                 X = Y
 
@@ -412,9 +403,7 @@ class EQL:
         return error
 
     def sparsity(self, minMag=0.01):
-        """
-        Returns the sparsity of a trained model (number of active nodes)
-        """
+        """Returns the sparsity of a trained model (number of active nodes)"""
 
         # list of lists where ith element is list containing activity (in the
         # form of a binary value) of outputs of ith layer
@@ -457,16 +446,12 @@ class EQL:
         return sum([item for sublist in layerSparsity for item in sublist])
 
     def odecompat(self, t, x):
-        """
-        Wrapper for Keras' predict function
-        """
-
+        """Wrapper for Keras' predict function, solve_ivp compatible"""
         prediction = self.model.predict(np.reshape(x, (1, len(x))))
         return prediction
 
 
 class EQLDIV:
-
     """
     EQL-div function learning network
 
@@ -505,7 +490,6 @@ class EQLDIV:
     # References
         - [Learning Equations for Extrapolation and Control](
            https://arxiv.org/abs/1806.07259)
-
     """
 
     def __init__(self, inputSize, outputSize, numLayers,
@@ -688,9 +672,7 @@ class EQLDIV:
         K.set_value(self.model.layers[self.numLayers*2].threshold, 0.001)
 
     def evaluate(self, predictors, labels, batchSize=10, verbose=0):
-        """
-        Evaluates trained model on data
-        """
+        """Evaluates trained model on data"""
         return self.model.evaluate(predictors, labels, batch_size=batchSize,
                                    verbose=verbose)[1]
 
@@ -721,26 +703,24 @@ class EQLDIV:
 
             # computes the result of the next nonlinear layer, if applicable
             if i != (len(weights) - 1):
+                u, v = self.nonlinearInfo[i]
+
                 # computes the result of the unary component of the nonlinear
                 # layer
                 # iterating over unary input
-                for j in range(self.nonlinearInfo[i][0]):
+                for j in range(u):
                     Y[0, j] = self.hypothesisSet[1][self.unaryFunctions[i][j]](
                             X[0, j])
 
                 # computes the result of the binary component of the nonlinear
                 # layer
                 # iterating over binary input
-                for j in range(self.nonlinearInfo[i][1]):
-                    Y[0, j+self.nonlinearInfo[i][0]] = X[
-                        0, j * 2 + self.nonlinearInfo[i][0]] * X[
-                            0, j * 2 + self.nonlinearInfo[i][0] + 1]
+                for j in range(v):
+                    Y[0, j+u] = X[0, j * 2 + u] * X[0, j * 2 + u + 1]
 
                 # removes final v rows which are now outdated
-                for j in range(self.nonlinearInfo[i][0]
-                               + self.nonlinearInfo[i][1], Y.cols):
-                    Y.col_del(self.nonlinearInfo[i][0]
-                              + self.nonlinearInfo[i][1])
+                for j in range(u + v, Y.cols):
+                    Y.col_del(u + v)
 
                 X = Y
 
@@ -874,9 +854,7 @@ class EQLDIV:
         self.pipeline = pipeline
 
     def applyPipeline(self, x):
-        """
-        Applies a saved scikit_learn pipeline to a dataset
-        """
+        """Applies a saved scikit_learn pipeline to a dataset"""
 
         if self.pipeline is not None:
             for op in self.pipeline:
@@ -884,9 +862,7 @@ class EQLDIV:
         return x
 
     def odecompat(self, t, x):
-        """
-        Wrapper for Keras' predict function
-        """
+        """Wrapper for Keras' predict function, solve_ivp compatible"""
 
         x = np.reshape(x, (1, -1))
         if self.pipeline is not None:

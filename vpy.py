@@ -29,6 +29,7 @@ def justOne(func, x0, tEnd=10, deltat=0.005):
         deltat: spacing between sampled functional values (note: not the step
             the integrator uses)
     """
+
     # constants
     t = 0
 
