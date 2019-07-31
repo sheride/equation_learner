@@ -12,32 +12,32 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer
 import tensorflow as tf
 
 """
+# References
+        - [Learning Equations for Extrapolation and Control](
+           https://arxiv.org/abs/1806.07259)
+        - [Extrapolation and learning equations](
+           https://arxiv.org/abs/1610.02995)
+"""
+
+
+"""
 Helper Functions
 
 """
 
 
 def genSign():
-    """
-    Returns either 1 or -1
-    """
-
+    """Returns either 1 or -1"""
     return 1 if np.random.rand() < 0.5 else -1
 
 
 def genNum(width):
-    """
-    Returns a number in the range [-width, width]
-    """
-
+    """Returns a number in the range [-width, width]"""
     return np.random.rand() * 2 * width - width
 
 
 def fixRadians(x):
-    """
-    Converts an angle to within the range [-pi, pi]
-    """
-
+    """Converts an angle to within the range [-pi, pi]"""
     return (x % (2 * np.pi) if x % (2 * np.pi) < np.pi
             else (x % (2 * np.pi) - 2 * np.pi))
 
@@ -49,6 +49,7 @@ Data Preparation
 
 
 def pipeline(model, x, rescale=True, stand=True, norm=True):
+    """Applies a scikit_learn pipeline for data preprocessing"""
     pipeline = []
     if rescale:
         mm = MinMaxScaler(feature_range=(0, 1)).fit(x)
@@ -77,6 +78,7 @@ Single Pendulum Differential Equation Data
 
 
 def pendulumDerivatives(x):
+    """Returns time derivative of pendulum phase space vector (divided by g)"""
     g = 9.8
     return [x[1]/g, -np.sin(x[0])]
 
@@ -85,6 +87,17 @@ def pendulumDerivatives(x):
 # w is width of hypercube of sampled points for training data
 # n is number of data points
 def genPendulumDiffEqData(w, n):
+    """
+    Saves 1 training and 3 testing data sets (each with n data points)
+    corresponding to the E-L equations of motion of the single pendulum,
+    sampled from different phase space hypercubes centered on origin, as
+    described in [1].
+
+    training_predictors, interpolation_predictors: [-w, w]^2
+    extrapolation_near_predictors: [-3w/2, -3w/2]^2 (setminus) [-w, w]^2
+    extrapolation_far_predictors: [-2w, -2w]^2 (setminus) [-w, -w]^2
+    """
+
     training_predictors = [[genNum(w) for j in range(2)] for i in range(n)]
     training_labels = [pendulumDerivatives(x) for x in training_predictors]
     interpolation_predictors = [
@@ -119,8 +132,12 @@ Double Pendulum Coordinate Data
 """
 
 
-# function for ODE solver
 def doublePendulumDerivativesSolver(t, x):
+    """
+    Returns time derivative of double pendulum phase space vector, solve_ivp
+    compatible
+    """
+
     g = 9.8
     return [x[1],
             (-1 * (x[1]**2) * np.sin(x[0] - x[2]) * np.cos(x[0] - x[2])
@@ -136,9 +153,16 @@ def doublePendulumDerivativesSolver(t, x):
             / (2 - (np.cos(x[0] - x[2]))**2)]
 
 
-# given a pair of angles in a list x, returns x and y coordinates of each
-# mass bob in a vector
 def doublePendulumCoordinate(x):
+    """
+    Returns vector containing Cartesian coordinates [x1, y1, x2, y2]
+    describing given double pendulum configuration.
+
+    # Arguments
+        x: vector in R^2 of form [theta1, theta2], configuration of double
+        pendulum
+    """
+
     return [np.sin(x[0]),
             -np.cos(x[0]),
             np.sin(x[0]) + np.sin(x[1]),
@@ -147,6 +171,17 @@ def doublePendulumCoordinate(x):
 
 # generates two double pendulum coordinate data sets using two trajectories
 def genDoublePendulumCoordinateData():
+    """
+    Saves 1 training and 1 testing data sets (each with n data points)
+    corresponding to the coordinate transformation between two angles (theta1,
+    theta2) and Cartesian coordinates (x1, y1, x2, y2) using double pendulum
+    trajectories as described in [1].
+
+    Training set (interpolation) comes from low-energy trajectory (see
+    firstInput for initial condition) and testing set (extrapolation) comes
+    from higher energy trajectory (see secondInput).
+    """
+
     firstInput = [np.pi/2, 0, np.pi/2, 0]
     secondInput = [np.pi/4, 0, np.pi/4, 0]
     firstOutput = slv(doublePendulumDerivativesSolver, [0, 40], firstInput,
@@ -177,8 +212,8 @@ Arbitrary R^4 -> R Function Data
 """
 
 
-# F-1 from paper
 def Function1(x):
+    """F-1 from [1]"""
     return (1/3) * (
             np.sin(np.pi * x[0])
             + np.sin(2 * np.pi * x[1] + (np.pi/8))
@@ -186,8 +221,8 @@ def Function1(x):
             - x[2]*x[3])
 
 
-# F-2 from paper
 def Function2(x):
+    """F-2 from [1]"""
     return (1/3) * (
             np.sin(np.pi * x[0])
             + x[1] * np.cos(2 * np.pi * x[0] + (np.pi/4))
@@ -195,14 +230,24 @@ def Function2(x):
             - x[3]**2)
 
 
-# F-3 from paper
 def Function3(x):
+    """F-3 from [1]"""
     return (1/3) * (
             (1 + x[1]) * np.sin(np.pi * x[0])
             + x[1] * x[2] * x[3])
 
 
 def genFunctionData(w, n, f):
+    """
+    Saves 1 training and 3 testing data sets (each with n data points)
+    corresponding to an arbitrary function f R^4 -> R, sampled from different
+    hypercubes centered on the origin, as described in [1].
+
+    training_predictors, interpolation_predictors: [-w, w]^4
+    extrapolation_near_predictors: [-3w/2, -3w/2]^4 (setminus) [-w, w]^4
+    extrapolation_far_predictors: [-2w, -2w]^4 (setminus) [-w, -w]^4
+    """
+
     training_predictors = [[genNum(w) for j in range(4)] for i in range(n)]
     training_labels = [f(training_predictors[i]) for i in range(n)]
     interpolation_predictors = [
@@ -237,6 +282,7 @@ Double Pendulum Differential Equation Data
 
 
 def doublePendulumDerivatives(x):
+    """Returns time derivative of double pendulum phase space vector"""
     g = 9.8
     return [x[1],
             (-1 * (x[1]**2) * np.sin(x[0] - x[2]) * np.cos(x[0] - x[2])
@@ -253,6 +299,17 @@ def doublePendulumDerivatives(x):
 
 
 def genDoublePendulumDiffEqData(w, n):
+    """
+    Saves 1 training and 3 testing data sets (each with n data points)
+    corresponding to the E-L equations of motion of the double pendulum,
+    sampled from different phase space hypercubes centered on the origin, a
+    procedure described [1].
+
+    training_predictors, interpolation_predictors: [-w, w]^4
+    extrapolation_near_predictors: [-3w/2, -3w/2]^4 (setminus) [-w, w]^4
+    extrapolation_far_predictors: [-2w, -2w]^4 (setminus) [-w, -w]^4
+    """
+
     training_predictors = [[genNum(w) for j in range(4)] for i in range(n)]
     training_labels = [
             doublePendulumDerivatives(training_predictors[i])
@@ -291,13 +348,13 @@ N-Lattice Differential Equation Data
 
 """
 
-N = 4  # number of masses
-k = [50] * (N + 1)  # spring constants
-m = [1] * N  # masses
 
+def NLatticeDerivativesSolver(t, x, k=([50] * 5), m=([1] * 4)):
+    """
+    Returns time derivative of N-lattice phase space vector (x1, v1, ...),
+    solve_ivp compatible
+    """
 
-# for x, even indices pos, odd inices vel
-def NLatticeDerivativesSolver(t, x):
     z = [0, 0]
     z.extend(x)
     z.extend([0, 0])
@@ -309,7 +366,8 @@ def NLatticeDerivativesSolver(t, x):
             for i in range(2, len(z)-2)]
 
 
-def NLatticeDerivatives(x):
+def NLatticeDerivatives(x, k=([50] * 5), m=([1] * 4)):
+    """Returns time derivative of N-lattice phase space vector (x1, v1, ...)"""
     z = [0, 0]
     z.extend(x)
     z.extend([0, 0])
@@ -321,7 +379,18 @@ def NLatticeDerivatives(x):
             for i in range(2, len(z)-2)]
 
 
-def gen4LatticeDiffEqData(w, n):
+def genNLatticeDiffEqData(w, n, N=4):
+    """
+    Saves 1 training and 3 testing data sets (each with n data points)
+    corresponding to the E-L equations of motion of the N-lattice pendulum,
+    sampled from different phase space hypercubes centered on the origin, a
+    procedure described [1] (defaults to N=4).
+
+    training_predictors, interpolation_predictors: [-w, w]^N
+    extrapolation_near_predictors: [-3w/2, -3w/2]^N (setminus) [-w, w]^N
+    extrapolation_far_predictors: [-2w, -2w]^N (setminus) [-w, -w]^N
+    """
+
     training_predictors = [
             [genNum(w) for j in range(2 * N)] for i in range(n)]
     training_labels = [
@@ -361,10 +430,21 @@ Arbitrary R^2 -> R Division Function Data
 
 
 def divisionFunction(x):
+    """Eq. 11 in [2]"""
     return np.sin(np.pi * x[0]) / (x[1]**2 + 1)
 
 
 def genDivisionFunctionData(w, n):
+    """
+    Saves 1 training and 3 testing data sets (each with n data points)
+    corresponding to the divisionFunction, itself given in [2], sampled from
+    different hypercubes centered on the origin, a procedure described [1]
+
+    training_predictors, interpolation_predictors: [-w, w]^2
+    extrapolation_near_predictors: [-3w/2, -3w/2]^2 (setminus) [-w, w]^2
+    extrapolation_far_predictors: [-2w, -2w]^2 (setminus) [-w, -w]^2
+    """
+
     training_predictors = np.asarray([[genNum(w) for j in range(2)]
                                       for i in range(n)])
     training_labels = np.asarray([
@@ -405,6 +485,10 @@ Double Pendulum Differential Equation with Energy Data
 
 
 def doublePendulumEnergy(x):
+    """
+    Returns the Hamiltonian of a vector in the double pendulum phase space
+    """
+
     g = 9.8
     return (x[1]**2
             + 0.5 * x[3]**2
@@ -414,12 +498,28 @@ def doublePendulumEnergy(x):
 
 
 def genDoublePendulumPointEnergy(w, func):
+    """
+    Uses func, w to generate elements of a double pendulum phase space vector,
+    and appends that vector's associated Hamiltonian
+    """
+
     point = [func(w) for i in range(4)]
     point.append(doublePendulumEnergy(point))
     return point
 
 
 def genDoublePendulumDiffEqEnergyData(w, n):
+    """
+    Saves 1 training and 3 testing data sets (each with n data points)
+    corresponding to the E-L equations of motion of the double pendulum,
+    sampled from different phase space hypercubes centered on the origin, a
+    procedure described [1]. Input is appended with its Hamiltonian value.
+
+    training_predictors, interpolation_predictors: [-w, w]^4
+    extrapolation_near_predictors: [-3w/2, -3w/2]^4 (setminus) [-w, w]^4
+    extrapolation_far_predictors: [-2w, -2w]^4 (setminus) [-w, -w]^4
+    """
+
     def ext_near(w):
         return genNum(w/4) + genSign() * (5*w/4)
 
@@ -466,15 +566,28 @@ Data
 
 
 def doublePendulumKE(x):
+    """
+    Returns the kinetic energy of a vector in the double pendulum phase space
+    """
+
     return (x[1]**2 + 0.5 * x[3]**2 + x[1] * x[3] * np.cos(x[0] - x[2])) / 100
 
 
 def doublePendulumPE(x):
+    """
+    Returns the potential energy of a vector in the double pendulum phase space
+    """
+
     g = 9.8
     return (-2 * g * np.cos(x[0]) - g * np.cos(x[2])) / 100
 
 
 def genDoublePendulumPointKEPE(w, func):
+    """
+    Uses func, w to generate elements of a double pendulum phase space vector,
+    and appends that vector's associated kinetic energy, potential energy
+    """
+
     point = [func(w) for i in range(4)]
     point.append(doublePendulumKE(point))
     point.append(doublePendulumPE(point))
@@ -482,6 +595,18 @@ def genDoublePendulumPointKEPE(w, func):
 
 
 def genDoublePendulumDiffEqKEPEData(w, n):
+    """
+    Saves 1 training and 3 testing data sets (each with n data points)
+    corresponding to the E-L equations of motion of the double pendulum,
+    sampled from different phase space hypercubes centered on the origin, a
+    procedure described [1]. Input is appended with its kinetic energy and
+    potential energy values.
+
+    training_predictors, interpolation_predictors: [-w, w]^4
+    extrapolation_near_predictors: [-3w/2, -3w/2]^4 (setminus) [-w, w]^4
+    extrapolation_far_predictors: [-2w, -2w]^4 (setminus) [-w, -w]^4
+    """
+
     def ext_near(w):
         return genNum(w/4) + genSign() * (5*w/4)
 
@@ -513,10 +638,10 @@ def genDoublePendulumDiffEqKEPEData(w, n):
                       extrapolation_far_predictors]
     all_labels = [training_labels, interpolation_labels,
                   extrapolation_near_labels, extrapolation_far_labels]
-    np.save('DoublePendulumDiffEqKEPE_' + str(w) + '_' + str(n),
+    np.save('DoublePendulumDiffEqKEPEPredictor_' + str(w) + '_' + str(n),
             all_predictors, allow_pickle=True)
-    np.save('DoublePendulumDiffEqKEPE_' + str(w) + '_' + str(n), all_labels,
-            allow_pickle=True)
+    np.save('DoublePendulumDiffEqKEPELabel_' + str(w) + '_' + str(n),
+            all_labels, allow_pickle=True)
 
 
 """
@@ -525,11 +650,26 @@ Regularization Demonstration R -> R Function Data
 
 
 def regDem(x):
+    """
+    Arbitrary function R -> R created to demonstrate effects of regularization
+    for poster presentation at MSU Mid-SURE 2019
+    """
+
     return ((np.cos(11 * x) - 3 * x**2)
             / (np.sin(x) + 4))
 
 
 def genRegFunctionData(w, n):
+    """
+    Saves 1 training and 3 testing data sets (each with n data points)
+    corresponding to the regDem function, sampled from different hypercubes
+    centered on the origin, a procedure described [1]
+
+    training_predictors, interpolation_predictors: [-w, w]^2
+    extrapolation_near_predictors: [-3w/2, -3w/2]^2 (setminus) [-w, w]^2
+    extrapolation_far_predictors: [-2w, -2w]^2 (setminus) [-w, -w]^2
+    """
+
     training_predictors = [genNum(w) for i in range(n)]
     training_labels = [
             regDem(training_predictors[i]) for i in range(n)]
@@ -552,9 +692,9 @@ def genRegFunctionData(w, n):
                       extrapolation_far_predictors]
     all_labels = [training_labels, interpolation_labels,
                   extrapolation_near_labels, extrapolation_far_labels]
-    np.save('RegDemFunction_' + str(w) + '_' + str(n), all_predictors,
+    np.save('RegDemFunctionPredictor_' + str(w) + '_' + str(n), all_predictors,
             allow_pickle=False)
-    np.save('RegDemFunction_' + str(w) + '_' + str(n), all_labels,
+    np.save('RegDemFunctionLabel_' + str(w) + '_' + str(n), all_labels,
             allow_pickle=False)
 
 
@@ -564,11 +704,23 @@ initial conditions with same energy)
 """
 
 
-# Energy E should fall roughly [-3g, 3g]
-# n: number of datapoints
-# c: number of configurations
-# step: interval between recorded time-series points
 def genDoublePendulumTimeseries(E, n, c, step):
+    """
+    Saves a training dataset corresponding to the to the E-L equations of
+    motion of the double pendulum, collected using numerical integration of
+    a variety of trajectories, each corresponding to the same Hamiltonian
+    value. All configurations are of the form theta1 = theta2 = T, omega1 =
+    omega2 = W. If theta1 = theta2 = T_max -> omega1 = omega2 = 0, then
+    utilized T values are (T_max, -T_max, T_max/2, -T_max/2, ..., T_max/(c/2))
+
+    # Arguments
+        E: Hamiltonian value for sampled trajectories, should fall in [-3g, 3g]
+        n: number of datapoints
+        c: number of configurations, should be even integer
+        step: temporal spacing between sampled datapoints in trajectories (not
+            the step size of the integrator)
+    """
+
     g = 9.8
     t_eval = np.linspace(0, int((n * step)/(2*c)), int(n/(2*c)))
     T = np.arccos(-E / (3*g))
@@ -612,6 +764,18 @@ def genDoublePendulumTimeseries(E, n, c, step):
 
 
 def randomDPEnergyState(E, maxAngle, maxVel):
+    """
+    Generates a random initial configuration for the double pendulum with a
+    given Hamiltonian value.
+
+    # Arguments
+        E: desired Hamiltonian value
+        maxAngle: value such that Hamiltonian for (maxAngle, 0, maxAngle, 0) is
+            E ( arccos(-E / 3g) )
+        maxVel: value such that Hamiltonian for (0, maxVel, 0, maxVel) is E
+            ( sqrt( (E + 3g) / (5/2) ) )
+    """
+
     x0 = [0, 0, 0, 0]
 
     while x0[3] == 0:
@@ -636,6 +800,20 @@ def randomDPEnergyState(E, maxAngle, maxVel):
 
 
 def genDoublePendulumTimeseriesRandom(E, n, c, step):
+    """
+    Saves a training dataset corresponding to the to the E-L equations of
+    motion of the double pendulum, collected using numerical integration of
+    a variety of trajectories, each corresponding to the same Hamiltonian
+    value. Configurations generated randomly using randomDPEnergyState.
+
+    # Arguments
+        E: Hamiltonian value for sampled trajectories
+        n: number of datapoints
+        c: number of configurations
+        step: temporal spacing between sampled datapoints in trajectories (not
+            the step size of the integrator)
+    """
+
     g = 9.8
     t_eval = np.linspace(0, int((n * step)/(2*c)), int(n/(2*c)))
     maxAngle = np.arccos(-E / (3*g))
@@ -671,6 +849,12 @@ def genDoublePendulumTimeseriesRandom(E, n, c, step):
 
 
 def genDoublePendulumConstEnergy(E, n):
+    """
+    Saves a training dataset with n datapoints corresponding to the to the E-L
+    equations of motion of the double pendulum, collected using random sampling
+    of subset of phase space corresponding to particular Hamiltonian value E
+    """
+
     g = 9.8
     maxAngle = np.arccos(-E / (3*g))
     maxVel = np.sqrt((E + 3*g) / (5/2))
@@ -686,10 +870,86 @@ def genDoublePendulumConstEnergy(E, n):
             all_data, allow_pickle=False)
 
 
+"""
+Double Pendulum Differential Equation Data (physics-informed quantities
+appended)
+"""
+
+
 def DPEnergyTF(x):
+    """
+    Analog to doublePendulumEnergy(), compatible with minibatches of TF/Keras
+    tensors
+    """
+
     g = 9.8
     return (tf.square(x[:, 1:2])
             + 0.5 * tf.square(x[:, 3:4])
             + x[:, 1:2] * x[:, 3:4] * tf.math.cos(x[:, 0:1] - x[:, 2:3])
             - 2 * g * tf.math.cos(x[:, 0:1])
             - g * tf.math.cos(x[:, 2:3]))
+
+
+def genDPFeatureEngPoint(w, func):
+    """
+    Uses func, w to generate elements of a double pendulum phase space vector,
+    and appends (theta1 - theta2, omega1^2, omega2^2) due to their frequent
+    appearance in the double pendulum equations of motion.
+    """
+
+    point = [func(w) for i in range(4)]
+    point.append(point[0] - point[2])
+    point.append(point[1]**2)
+    point.append(point[3]**2)
+    return point
+
+
+def genDoublePendulumDiffEqFeatureEng(w, n):
+    """
+    Saves 1 training and 3 testing data sets (each with n data points)
+    corresponding to the E-L equations of motion of the double pendulum,
+    sampled from different phase space hypercubes centered on the origin, a
+    procedure described [1]. Input is appended with
+    (theta1 - theta2, omega1^2, omega2^2) due to their frequent appearance in
+    the equations of motion.
+
+    training_predictors, interpolation_predictors: [-w, w]^4
+    extrapolation_near_predictors: [-3w/2, -3w/2]^4 (setminus) [-w, w]^4
+    extrapolation_far_predictors: [-2w, -2w]^4 (setminus) [-w, -w]^4
+    """
+
+    def ext_near(w):
+        return genNum(w/4) + genSign() * (5*w/4)
+
+    def ext_far(w):
+        return genNum(w/2)+genSign()*(3*w/2)
+
+    training_predictors = [
+            genDPFeatureEngPoint(w, genNum) for i in range(n)]
+    training_labels = [
+            doublePendulumDerivatives(training_predictors[i])
+            for i in range(n)]
+    interpolation_predictors = [
+            genDPFeatureEngPoint(w, genNum) for i in range(n)]
+    interpolation_labels = [
+            doublePendulumDerivatives(interpolation_predictors[i])
+            for i in range(n)]
+    extrapolation_near_predictors = [
+            genDPFeatureEngPoint(w, ext_near) for i in range(n)]
+    extrapolation_near_labels = [
+            doublePendulumDerivatives(extrapolation_near_predictors[i])
+            for i in range(n)]
+    extrapolation_far_predictors = [
+            genDPFeatureEngPoint(w, ext_far) for i in range(n)]
+    extrapolation_far_labels = [
+            doublePendulumDerivatives(extrapolation_far_predictors[i])
+            for i in range(n)]
+    all_predictors = [training_predictors, interpolation_predictors,
+                      extrapolation_near_predictors,
+                      extrapolation_far_predictors]
+    all_labels = [training_labels, interpolation_labels,
+                  extrapolation_near_labels, extrapolation_far_labels]
+    np.save('DoublePendulumDiffEqFeatureEngPredictor_' + str(w) + '_' + str(n),
+            all_predictors, allow_pickle=True)
+    np.save('DoublePendulumDiffEqFeatureEngLabel_' + str(w) + '_' + str(n),
+            all_labels, allow_pickle=True)

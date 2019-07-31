@@ -10,4 +10,3 @@ from . import data
 from . import keras_classes
 from . import models
 from . import ode
-from . import vpy
