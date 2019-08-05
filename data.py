@@ -692,12 +692,12 @@ def genDoublePendulumTimeseries(E, n, c, step):
     """
 
     g = 9.8
-    t_eval = np.linspace(0, int((n * step)/(2*c)), int(n/(2*c)))
+    t_eval = np.linspace(0, int((n * step)/(c)), int(n/(c)))
     T = np.arccos(-E / (3*g))
     x0 = np.asarray([T, 0, T, 0])
     xs = [x0, -x0]
 
-    for i in range(2, int(c/2)):
+    for i in range(2, int(c/2)+1):
         xs.append([T/i,
                    np.sqrt(6/5) * np.sqrt(g * (np.cos(T/i) - np.cos(T))),
                    T/i,
@@ -710,9 +710,7 @@ def genDoublePendulumTimeseries(E, n, c, step):
     sols = []
     for x in xs:
         sols.append(slv(doublePendulumDerivativesSolver,
-                        [0, len(t_eval) * step],
-                        x,
-                        t_eval=t_eval).y)
+                        [0, len(t_eval) * step], x, t_eval=t_eval).y)
 
     data = np.concatenate(tuple(sols), axis=1)
 
