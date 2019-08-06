@@ -47,7 +47,7 @@ def odeSolve(models, odeFunction, initialCond, timeSpan, step):
               range(int((timeSpan[1] - timeSpan[0])/step))]
     actualSol = solve_ivp(odeFunction, timeSpan, initialCond, t_eval=t_eval)
     modelsSol = [0 for i in range(len(models))]
-    for i in range(len(models)):
+    for i, _ in enumerate(models):
         modelsSol[i] = solve_ivp(models[i].odecompat, timeSpan, initialCond,
                                  t_eval=t_eval)
     return [actualSol, modelsSol]

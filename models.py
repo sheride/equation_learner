@@ -139,7 +139,7 @@ def plotTogether(inputSize, outputSize, models, function, settings=dict(),
                         label='Goal Function')
             axs[i].set_xlabel(xlabel)
             axs[i].set_ylabel(ylabel)
-            for j in range(len(models_Y)):
+            for j, _ in enumerate(models_Y):
                 axs[i].plot(X[0], models_Y[j][i], color=colors[j+1],
                             linestyle=':', label=legNames[j])
 
@@ -322,7 +322,7 @@ class EQL:
         # creates generic input vector
         X = make_symbolic(1, self.inputSize)
 
-        for i in range(0, len(weights)):
+        for i, _ in enumerate(weights):
             # computes the result of the next linear layer
             W = sympy.Matrix(weights[i])
             b = sympy.Transpose(sympy.Matrix(bias[i]))
@@ -694,7 +694,7 @@ class EQLDIV:
         # creates generic input vector
         X = make_symbolic(1, self.inputSize)
 
-        for i in range(0, len(weights)):
+        for i, _ in enumerate(weights):
             # computes the result of the next linear layer
             W = sympy.Matrix(weights[i])
             b = sympy.Transpose(sympy.Matrix(bias[i]))
@@ -863,6 +863,16 @@ class EQLDIV:
 
     def odecompat(self, t, x):
         """Wrapper for Keras' predict function, solve_ivp compatible"""
+
+        # Bad hack for experimentations with feature engineering for double
+        # pendulum
+        if self.inputSize == 7:
+            if len(np.array(x).shape) == 2:
+                y = [x[0, 0] - x[0, 2], x[0, 1]**2, x[0, 3]**2]
+                x = np.append(x, y)
+            else:
+                y = [x[0] - x[2], x[1]**2, x[3]**2]
+                x = np.append(x, y)
 
         x = np.reshape(x, (1, -1))
         if self.pipeline is not None:
