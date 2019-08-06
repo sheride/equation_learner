@@ -405,45 +405,23 @@ class EQL:
     def sparsity(self, minMag=0.01):
         """Returns the sparsity of a trained model (number of active nodes)"""
 
-        # list of lists where ith element is list containing activity (in the
-        # form of a binary value) of outputs of ith layer
-        layerSparsity = [[]
-                         for i in range(int(len(self.model.get_weights())/2))]
+        vec = np.ones((1, self.inputSize))
+        weights = self.model.get_weights()
+        sparsity = 0
+        for i in range(self.numLayers - 1):
+            u, v = self.nonlinearInfo[i]
+            w, b = weights[i*2], weights[i*2+1]
+            vec = np.dot(vec, w) + b
+            vec = np.concatenate(
+                    (vec[:, :u], vec[:, u::2] * vec[:, u+1::2]), axis=1)
+            sparsity += np.sum(
+                    (np.abs(vec) > np.full_like(vec, minMag)).astype(int))
 
-        # iterating over layers
-        for i in range(0, len(self.model.get_weights()), 2):
-
-            # linear component
-            # weights
-            # iterating over columns (due to how the matrix mult. works)
-            for j in range(len(self.model.get_weights()[i][0])):
-                layerSparsity[int(i/2)].append(0)
-                # iterating over rows
-                for k in range(len(self.model.get_weights()[i])):
-                    if ((i == 0 or layerSparsity[int(i/2) - 1][k] != 0) and
-                            abs(self.model.get_weights()[i][k][j]) > minMag):
-                        # if weight surpasses minimum magnitude and input was
-                        # active, output is active
-                        layerSparsity[int(i/2)][j] = 1
-
-            # biases
-            for j in range(len(self.model.get_weights()[i+1])):
-                if abs(self.model.get_weights()[i+1][j]) > minMag:
-                    # if bias surpasses minimum magnitude, output is active
-                    layerSparsity[int(i/2)][j] = 1
-
-        # handling binary units in nonlinear layers where necessary
-        # if not last layer (which has no nonlinear component)
-        if i != len(self.model.get_weights()) - 2:
-            u, v = self.nonlinearInfo[int(i/2)]
-            # active if both units active
-            for j in range(v):
-                layerSparsity[int(i/2)][u + j] = layerSparsity[int(i/2)][
-                    u + 2 * j] * layerSparsity[int(i/2)][u + 2 * j + 1]
-            del layerSparsity[int(i/2)][u + v:]  # get rid of old values now
-
-        # return sum of flattened layerSparsity list (number of active oututs)
-        return sum([item for sublist in layerSparsity for item in sublist])
+        w, b = weights[len(weights)-2], weights[len(weights)-1]
+        vec = np.dot(vec, w) + b
+        sparsity += np.sum(
+                (np.abs(vec) > np.full_like(vec, minMag)).astype(int))
+        return sparsity
 
     def odecompat(self, t, x):
         """Wrapper for Keras' predict function, solve_ivp compatible"""
@@ -788,62 +766,26 @@ class EQLDIV:
         return error
 
     def sparsity(self, minMag=0.01):
-        """
-        Returns the sparsity of a trained model (number of active nodes)
-        """
+        """Returns the sparsity of a trained model (number of active nodes)"""
 
-        # list of lists where ith element is list containing activity (in the
-        # form of binary value) of outputs of ith layer
-        layerSparsity = [[]
-                         for i in range(int(len(self.model.get_weights())/2))]
+        vec = np.ones((1, self.inputSize))
+        weights = self.model.get_weights()
+        sparsity = 0
+        for i in range(self.numLayers - 1):
+            u, v = self.nonlinearInfo[i]
+            w, b = weights[i*2], weights[i*2+1]
+            vec = np.dot(vec, w) + b
+            vec = np.concatenate(
+                    (vec[:, :u], vec[:, u::2] * vec[:, u+1::2]), axis=1)
+            sparsity += np.sum(
+                    (np.abs(vec) > np.full_like(vec, minMag)).astype(int))
 
-        # iterating over layers
-        for i in range(0, len(self.model.get_weights()), 2):
-
-            # linear component
-            # weights
-            # iterating over columns (due to how the matrix mult. works)
-            for j in range(len(self.model.get_weights()[i][0])):
-                layerSparsity[int(i/2)].append(0)
-                # iterating over rows
-                for k in range(len(self.model.get_weights()[i])):
-                    if ((i == 0 or layerSparsity[int(i/2) - 1][k] != 0) and
-                            abs(self.model.get_weights()[i][k][j]) > minMag):
-                        # if weight surpasses minimum magnitude and input was z
-                        # active, output is active
-                        layerSparsity[int(i/2)][j] = 1
-
-            # biases
-            for j in range(len(self.model.get_weights()[i+1])):
-                if abs(self.model.get_weights()[i+1][j]) > minMag:
-                    # if bias surpasses minimum magnitude, output is active
-                    layerSparsity[int(i/2)][j] = 1
-
-            # handling binary units in nonlinear layers where necessary
-            # if not last layer (which has no nonlinear component)
-            if i != len(self.model.get_weights()) - 2:
-                u, v = self.nonlinearInfo[int(i/2)]
-                # active if both units active
-                for j in range(self.nonlinearInfo[int(i/2)][1]):
-                    layerSparsity[int(i/2)][u + j] = layerSparsity[int(i/2)][
-                        u + 2 * j] * layerSparsity[int(i/2)][
-                            u + 2 * j + 1]
-                del layerSparsity[int(i/2)][u + v:]
-                # get rid of old values now
-
-            # handling division layer
-            # if last layer (i.e. has division component)
-            if i == len(self.model.get_weights()) - 2:
-                # active if both units active
-                for j in range(int(len(layerSparsity[int(i/2)])/2)):
-                    layerSparsity[int(i/2)][j] = layerSparsity[int(i/2)][
-                        2 * j] * layerSparsity[int(i/2)][2 * j + 1]
-                del layerSparsity[int(i/2)][
-                    int(len(layerSparsity[int(i/2)])/2):]
-                # get rid of old values now
-
-        # return sum of flattened layerSparsity list (number of active oututs)
-        return sum([item for sublist in layerSparsity for item in sublist])
+        w, b = weights[len(weights)-2], weights[len(weights)-1]
+        vec = np.dot(vec, w) + b
+        vec = vec[0, ::2] * vec[0, 1::2]
+        sparsity += np.sum(
+                (np.abs(vec) > np.full_like(vec, minMag)).astype(int))
+        return sparsity
 
     def setPipeline(self, pipeline):
         """
