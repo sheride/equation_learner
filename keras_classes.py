@@ -9,9 +9,9 @@ Created on Fri Jun 21 13:44:11 2019
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-import keras
-from keras import backend as K
-from keras.layers import Layer
+import tensorflow.keras
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Layer
 import tensorflow as tf
 
 
@@ -106,12 +106,11 @@ class Nonlinear(Layer):
 
         return nonlinOutput
 
-    # returns the shape of a non-linear layer using the nodeInfo list
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.nodeInfo[0] + self.nodeInfo[1])
 
 
-class EnergyConsReg(keras.regularizers.Regularizer):
+class EnergyConsReg(tensorflow.keras.regularizers.Regularizer):
     """
     Energy Conservation Keras Activity Regularizer
 
@@ -141,7 +140,8 @@ class EnergyConsReg(keras.regularizers.Regularizer):
         minibatch to the loss function
         """
 
-        return self.coef * K.sum(tf.math.abs(self.energyFunc(x) - self.energy))
+        return self.coef * tf.math.reduce_sum(
+                tf.math.abs(self.energyFunc(x) - self.energy))
 
     def get_config(self):
         return {'Energy Function': self.energyFunc, 'energy': self.energy,
@@ -171,8 +171,8 @@ class Division(Layer):
         denominators = linOutput[:, 1::2]
         # following three lines adapted from
         # https://github.com/martius-lab/EQL_Tensorflow
-        zeros = tf.cast(denominators > self.threshold, dtype=tf.float32)
-        denominators = tf.reciprocal(tf.abs(denominators) + 1e-10)
+        zeros = K.cast(denominators > self.threshold, dtype=tf.float32)
+        denominators = tf.reciprocal(K.abs(denominators) + 1e-10)
         divOutput = numerators * denominators * zeros
         if self.loss is not None:
             self.add_loss(self.loss(divOutput))
@@ -183,7 +183,7 @@ class Division(Layer):
         return (input_shape[0], int(input_shape[1]/2))
 
 
-class DynamReg(keras.regularizers.Regularizer):
+class DynamReg(tensorflow.keras.regularizers.Regularizer):
     """
     Dynamic Keras Regularizer
 
@@ -194,25 +194,25 @@ class DynamReg(keras.regularizers.Regularizer):
     def __init__(self, l1=0., l2=0.):
         # this is the important part: this has to be a variable (i.e.
         # modifiable)
-        self.l1 = K.variable(l1, name='weightReg')
-        self.l2 = K.variable(l2, name='weightReg')
+        self.l1 = K.variable(l1, name='weightRegL1', dtype=tf.float32)
+        self.l2 = K.variable(l2, name='weightRegL2', dtype=tf.float32)
         self.uses_learning_phase = True
         self.p = None
 
     def __call__(self, x):
         regularization = 0.
-        if self.l1:
-            regularization += K.sum(self.l1 * K.abs(x))
-        if self.l2:
-            regularization += K.sum(self.l2 * K.square(x))
+        if self.l1 != 0:
+            regularization += tf.math.reduce_sum(self.l1 * tf.abs(x))
+        if self.l2 != 0:
+            regularization += tf.math.reduce_sum(self.l2 * tf.square(x))
         return regularization
 
     def get_config(self):
-        return {'l1': float(self.l1.eval(session=K.get_session())),
-                'l2': float(self.l2.eval(session=K.get_session()))}
+        return {'l1': self.l1,
+                'l2': self.l1}
 
 
-class ConstantL0(keras.constraints.Constraint):
+class ConstantL0(tensorflow.keras.constraints.Constraint):
     """
     Constant L0 Norm Keras Constraint
 
@@ -228,15 +228,15 @@ class ConstantL0(keras.constraints.Constraint):
         self.toZero = K.variable(toZero, name='toZero', dtype=tf.bool)
 
     def __call__(self, w):
-        return tf.where(self.toZero, K.zeros_like(w), w)
+        return tf.where(self.toZero, tf.zeros_like(w), w)
         # ^^replaces weights matrix entries with original value if greater than
         # threshold, zero otherwise
 
     def get_config(self):
-        return {'toZero': self.toZero.eval(session=K.get_session())}
+        return {'toZero': self.toZero}
 
 
-class DenominatorPenalty(keras.regularizers.Regularizer):
+class DenominatorPenalty(tensorflow.keras.regularizers.Regularizer):
     """
     Denominator Penalty Keras Activity Regularizer
 

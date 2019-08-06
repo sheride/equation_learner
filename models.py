@@ -11,12 +11,12 @@ import numpy as np
 import sympy
 import matplotlib.pyplot as plt
 import tensorflow as tf
-import keras
-import keras.backend as K
-from keras.initializers import RandomNormal as RandNorm
-from keras.engine.input_layer import Input
-from keras.layers import Dense
-from keras.callbacks import LambdaCallback as LambCall
+import tensorflow.keras
+import tensorflow.keras.backend as K
+from tensorflow.keras.initializers import RandomNormal as RandNorm
+from tensorflow.keras import Input
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.callbacks import LambdaCallback as LambCall
 from . import keras_classes as my
 from .keras_classes import Nonlinear as Nonlin
 from .keras_classes import DynamReg
@@ -213,8 +213,8 @@ class EQL:
                 stddev = np.sqrt(1 / (linIn * (u + 2 * v)))
                 randNorm = RandNorm(0, stddev=stddev, seed=2000)
                 # Prepping weight, bias tensors for ConstL0
-                wZeros = tf.cast(K.zeros((linIn, u + 2 * v)), tf.bool)
-                bZeros = tf.cast(K.zeros((u + 2 * v, )), tf.bool)
+                wZeros = tf.cast(tf.zeros((linIn, u + 2 * v)), tf.bool)
+                bZeros = tf.cast(tf.zeros((u + 2 * v, )), tf.bool)
                 self.layers[i] = Dense(
                     u + 2 * v,
                     kernel_initializer=randNorm,
@@ -233,8 +233,8 @@ class EQL:
             stddev = np.sqrt(1 / (self.outputSize * linIn))
             randNorm = RandNorm(0, stddev=stddev, seed=2000)
             # Prepping weight, bias tensors for ConstL0
-            wZeros = tf.cast(K.zeros((linIn, self.outputSize)), tf.bool)
-            bZeros = tf.cast(K.zeros((self.outputSize, )), tf.bool)
+            wZeros = tf.cast(tf.zeros((linIn, self.outputSize)), tf.bool)
+            bZeros = tf.cast(tf.zeros((self.outputSize, )), tf.bool)
             self.layers[numKerLay - 1] = Dense(
                 self.outputSize,
                 kernel_initializer=randNorm,
@@ -245,11 +245,12 @@ class EQL:
                 )(self.layers[numKerLay-2])
 
             # Optimizer
-            optimizer = keras.optimizers.Adam(lr=self.learningRate)
+            optimizer = tensorflow.keras.optimizers.Adam(lr=self.learningRate)
 
             # Model
-            self.model = keras.Model(inputs=self.layers[0],
-                                     outputs=self.layers[self.numLayers*2-1])
+            self.model = tensorflow.keras.Model(
+                    inputs=self.layers[0],
+                    outputs=self.layers[self.numLayers*2-1])
 
             # Compilation
             self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
@@ -524,8 +525,8 @@ class EQLDIV:
                 stddev = np.sqrt(1 / (linIn * (u + 2 * v)))
                 randNorm = RandNorm(0, stddev=stddev, seed=2000)
                 # Prepping weight, bias tensors for ConstL0
-                wZeros = tf.cast(K.zeros((linIn, u + 2 * v)), tf.bool)
-                bZeros = tf.cast(K.zeros((u + 2 * v, )), tf.bool)
+                wZeros = tf.cast(tf.zeros((linIn, u + 2 * v)), tf.bool)
+                bZeros = tf.cast(tf.zeros((u + 2 * v, )), tf.bool)
                 self.layers[i] = Dense(u + 2 * v,
                                        kernel_initializer=randNorm,
                                        kernel_regularizer=DynamReg(0),
@@ -545,8 +546,8 @@ class EQLDIV:
             stddev = np.sqrt(1 / (self.outputSize * linIn))
             randNorm = RandNorm(0, stddev=stddev, seed=2000)
             # Prepping weight, bias tensors for ConstL0
-            wZeros = tf.cast(K.zeros((linIn, self.outputSize*2)), tf.bool)
-            bZeros = tf.cast(K.zeros((self.outputSize * 2,)), tf.bool)
+            wZeros = tf.cast(tf.zeros((linIn, self.outputSize*2)), tf.bool)
+            bZeros = tf.cast(tf.zeros((self.outputSize * 2,)), tf.bool)
             self.layers[numKerLay - 2] = Dense(
                 outputSize * 2,
                 kernel_initializer=randNorm,
@@ -569,11 +570,12 @@ class EQLDIV:
                         self.divThreshold)(self.layers[numKerLay - 2])
 
             # Optimizer
-            optimizer = keras.optimizers.Adam(lr=self.learningRate)
+            optimizer = tensorflow.keras.optimizers.Adam(lr=self.learningRate)
 
             # Model
-            self.model = keras.Model(inputs=self.layers[0],
-                                     outputs=self.layers[self.numLayers * 2])
+            self.model = tensorflow.keras.Model(
+                    inputs=self.layers[0],
+                    outputs=self.layers[numKerLay-1])
 
             # Compilation
             self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
