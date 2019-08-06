@@ -55,7 +55,6 @@ def rmse(y_true, y_pred):
     return K.sqrt(K.mean(K.square(y_pred - y_true)))
 
 
-# NOT MINE: function for making n x m matrix of symbols
 def make_symbolic(n, m):
     """
     Generates a sympy matrix full of numbered variables. Not original: taken
@@ -388,7 +387,6 @@ class EQL:
         if save:
             plt.savefig(self.name + '.png', bbox_inches='tight', dpi=300)
 
-    # percent error function
     def percentError(self, predictors, labels):
         """
         Returns the average percent error in each variable of a trained model
@@ -427,6 +425,23 @@ class EQL:
         """Wrapper for Keras' predict function, solve_ivp compatible"""
         prediction = self.model.predict(np.reshape(x, (1, len(x))))
         return prediction
+
+    def printJacobian(self, x):
+        """
+        Prints the Jacobian of the learned function, evaluated at a point
+
+        # Arguments
+            x: array-like with self.inputSize elements
+        """
+        x = np.reshape(x, (1, 1, self.inputSize)).tolist()
+        gradients = [tf.gradients(self.model.output[:, i], self.model.input)[0]
+                     for i in range(4)]
+        funcs = [K.function((self.model.input, ), [g]) for g in gradients]
+        jacobian = np.concatenate([func(x)[0] for func in funcs], axis=0)
+
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            print(jacobian)
 
 
 class EQLDIV:
@@ -654,7 +669,6 @@ class EQLDIV:
         return self.model.evaluate(predictors, labels, batch_size=batchSize,
                                    verbose=verbose)[1]
 
-    # function for retrieving a model's intrinsic equation
     def getEquation(self):
         """
         Prints learned equation of a trained model.
@@ -823,3 +837,20 @@ class EQLDIV:
 
         prediction = self.model.predict(x)
         return prediction
+
+    def printJacobian(self, x):
+        """
+        Prints the Jacobian of the learned function, evaluated at a point
+
+        # Arguments
+            x: array-like with self.inputSize elements
+        """
+        x = np.reshape(x, (1, 1, self.inputSize)).tolist()
+        gradients = [tf.gradients(self.model.output[:, i], self.model.input)[0]
+                     for i in range(4)]
+        funcs = [K.function((self.model.input, ), [g]) for g in gradients]
+        jacobian = np.concatenate([func(x)[0] for func in funcs], axis=0)
+
+        with tf.Session() as sess:
+            sess.run(tf.global_variables_initializer())
+            print(jacobian)
