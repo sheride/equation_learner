@@ -184,7 +184,7 @@ class DynamReg(Regularizer):
     Dynamic Keras Regularizer
 
     No change from Keras regularizer, except l1 and l2 are now tensorflow
-    K.variables which can be changed during the training schedule.
+    variables which can be changed during the training schedule.
     """
 
     def __init__(self, l1=0., l2=0.):

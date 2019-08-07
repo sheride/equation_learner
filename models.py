@@ -283,9 +283,9 @@ class EQL:
         # updating weight, bias regularization
         for i in range(1, len(self.model.layers), 2):
             K.set_value(self.model.layers[i].kernel_regularizer.l1,
-                      reg)
+                        reg)
             K.set_value(self.model.layers[i].bias_regularizer.l1,
-                      reg)
+                        reg)
         self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)),
                        batch_size=batchSize, verbose=verbose)
 
@@ -296,10 +296,10 @@ class EQL:
             K.set_value(self.model.layers[i].bias_regularizer.l1, 0)
             weight, bias = self.model.layers[i].get_weights()
             K.set_value(self.model.layers[i].kernel_constraint.toZero,
-                      np.less(np.abs(weight),
-                              np.full(weight.shape, threshold)))
+                        np.less(np.abs(weight),
+                                np.full(weight.shape, threshold)))
             K.set_value(self.model.layers[i].bias_constraint.toZero,
-                      np.less(np.abs(bias), np.full(bias.shape, threshold)))
+                        np.less(np.abs(bias), np.full(bias.shape, threshold)))
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
                        batch_size=batchSize, verbose=verbose)
 
@@ -640,9 +640,9 @@ class EQLDIV:
         dynamicThreshold = LambCall(on_epoch_begin=phase2)
         for i in range(1, len(self.model.layers), 2):
             K.set_value(self.model.layers[i].kernel_regularizer.l1,
-                      regStrength)
+                        regStrength)
             K.set_value(self.model.layers[i].bias_regularizer.l1,
-                      regStrength)
+                        regStrength)
         self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)),
                        batch_size=batchSize, verbose=verbose,
                        callbacks=[dynamicThreshold])
@@ -654,11 +654,11 @@ class EQLDIV:
             K.set_value(self.model.layers[i].bias_regularizer.l1, 0)
             weight, bias = self.model.layers[i].get_weights()
             K.set_value(self.model.layers[i].kernel_constraint.toZero,
-                      np.less(np.abs(weight),
-                              np.full(weight.shape, normThreshold)))
+                        np.less(np.abs(weight),
+                                np.full(weight.shape, normThreshold)))
             K.set_value(self.model.layers[i].bias_constraint.toZero,
-                      np.less(np.abs(bias),
-                              np.full(bias.shape, normThreshold)))
+                        np.less(np.abs(bias),
+                                np.full(bias.shape, normThreshold)))
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
                        batch_size=batchSize, verbose=verbose,
                        callbacks=[dynamicThreshold])
