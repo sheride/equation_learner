@@ -53,9 +53,27 @@ def odeSolve(models, odeFunction, initialCond, timeSpan, step):
     return [actualSol, modelsSol]
 
 
-def diffPlot(actualSol, modelSol, figsize=(10, 10), ymax=3,
-             name='Difference Plot', names=None, title='',
-             xlabel='X-Axis', ylabel='Y-Axis'):
+def dpdiffPlot(actualSol, modelSol, figsize=(10, 10), ymax=3,
+               name='Difference Plot', names=None, title='',
+               xlabel='X-Axis', ylabel='Y-Axis', binSize=50, settings=dict()):
+    """
+    Plots (moving time average of) error over time for trajectories of a double
+    pendulum generated via an EQL/EQL-div model being entered into odeSolve.
+    Error is Euclidean distance between actual and predicted second mass bob
+    position.
+
+    # Arguments
+        actualSol, modelSol: outputs of scipy.integrate.solve_ivp, precisely
+            what is returned by odeSolve
+        figSize: dimensions of plot
+        ymax: maximum y-axis (error) value shown on plot
+        name: file name for saved plot
+        names: tuple of strings, names for lines on plot for pyplot legend
+        title: title of plot
+        xlabel, ylabel: labels for axes
+        binSize: bin size for moving time averages of error
+        settings: pyplot rc_context settings
+    """
 
     n = len(modelSol)
 
@@ -63,12 +81,6 @@ def diffPlot(actualSol, modelSol, figsize=(10, 10), ymax=3,
     lines = [0 for i in range(n)]
     if names is None:
         names = tuple('Model ' + str(i+1) for i in range(n))
-
-    # Good for stable (pi/4, etc) for simulations lasting 100s of sec
-    # binSize = 250
-
-    # Good for chaotic, shorter simulations
-    binSize = 50
 
     actualX = np.sin(actualSol.y[0]) + np.sin(actualSol.y[2])
     actualY = -np.cos(actualSol.y[0]) - np.cos(actualSol.y[2])
@@ -80,37 +92,11 @@ def diffPlot(actualSol, modelSol, figsize=(10, 10), ymax=3,
         diff[i] = np.linalg.norm(np.transpose(actualCoord)
                                  - np.transpose(modelCoord), axis=1)
 
-    msuGray = (153/255, 162/255, 162/255)
-    msuGreen = (24/255, 69/255, 59/255)
-    msuOrange = (240/255, 133/255, 33/255)
-    msuPurple = (110/255, 0, 95/255)
-    msuCyan = (0, 129/255, 131/255)
-    colors = [msuGray, msuOrange, msuPurple, msuCyan,
-              'red', 'pink', 'blue', 'green']
-
-    titlefont = {'family': 'sans-serif', 'weight': 'bold', 'size': 72,
-                 'color': msuGreen}
-    labelfont = {'family': 'sans-serif', 'weight': 'bold', 'size': 48,
-                 'color': msuGreen}
-    tickfont = {'size': 24, 'color': msuGreen}
-
-    with plt.rc_context({'axes.linewidth': 6, 'axes.edgecolor': msuGreen,
-                         'xtick.color': msuGreen, 'ytick.color': msuGreen,
-                         'axes.labelpad': 20, 'xtick.major.size': 20,
-                         'xtick.minor.size': 20, 'xtick.major.width': 5,
-                         'xtick.minor.width': 5, 'ytick.major.size': 20,
-                         'ytick.minor.size': 20, 'ytick.major.width': 5,
-                         'ytick.minor.width': 5, 'xtick.labelsize': 48,
-                         'ytick.labelsize': 48, 'axes.titlepad': 25,
-                         'figure.figsize': figsize, 'legend.fontsize': 36,
-                         'axes.labelweight': 'bold',
-                         'axes.titleweight': 'bold',
-                         'font.family': 'sans-serif', 'font.weight': 'bold'}):
-        plt.title(title, **titlefont)
-        plt.xlabel(xlabel, **labelfont)
-        plt.ylabel(ylabel, **labelfont)
-        plt.xticks(**tickfont)
-        plt.yticks(**tickfont)
+    settings['figure.figsize'] = figsize
+    with plt.rc_context(settings):
+        plt.title(title)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
         plt.xlim(0, actualSol.t[len(actualSol.t) - binSize])
         plt.ylim(0, ymax)
 
@@ -118,33 +104,11 @@ def diffPlot(actualSol, modelSol, figsize=(10, 10), ymax=3,
             lines[i], = plt.plot(
                     actualSol.t[:-binSize],
                     np.convolve(diff[i], window(binSize), 'same')[:-binSize],
-                    color=colors[i+1], linewidth=10)
+                    linewidth=10)
 
         lines = tuple(lines)
         plt.legend(lines, names, loc=2)
         plt.savefig(name+'.png', bbox_inches='tight')
-
-
-def make2DMovie(actualSolCoords, modelSolCoords, xmin=-3, xmax=3, ymin=-3,
-                ymax=3, figSize=(10, 10), lineWidth=4,
-                name='Model-Reality Comparison'):
-    actualT, actualSolX, actualSolY = actualSolCoords
-    modelT, modelSolX, modelSolY = modelSolCoords
-    movie = pyvie.Movie(name, framerate=20, file_type='.png',
-                        movie_type='.avi')
-    plt.figure(figsize=figSize)
-    for t in range(min(len(actualT), len(modelT))):
-        plt.clf()
-        plt.scatter(actualSolX[t], actualSolY[t], linewidth=lineWidth, s=1000)
-        plt.scatter(modelSolX[t], modelSolY[t], linewidth=lineWidth, s=1000)
-        plt.xlim(xmin, xmax)
-        plt.ylim(ymin, ymax)
-        plt.grid(alpha=.5)
-        plt.title(name, fontsize=22)
-        plt.xticks(fontsize=15)
-        plt.yticks(fontsize=15)
-        movie.gather()
-    movie.finalize()
 
 
 def linear(x, m, b):
@@ -183,10 +147,24 @@ def getEnergyDriftAndFluc(modelSol, energyFunc):
 
 
 def plotDriftAndFluc(modelSols, energyFunc, title='', xlabel='xaxis',
-                     ylabel=['yaxis', 'yaxis'], names=None, name='Model',
-                     figsize=(10, 10), save=False):
+                     ylabel=['Energy Drift', 'Energy Fluctuation'], names=None,
+                     name='Model', figsize=(10, 10), save=False,
+                     settings=dict()):
     """
-    Plots energy drift, energy fluctuation for a list of trained models
+    Plots energy drift, energy fluctuation for a list of trained models.
+
+    # Arguments
+        modelSol: output of scipy.integrate.solve_ivp, precisely second item in
+            list returned by odeSolve
+        energyFunc: function accepting phase space vectors and returning the
+            energy associated with each phase space vector
+        title: title of plot
+        xlabel, ylabel: labels for axes
+        names: tuple of strings, names for lines on plot for pyplot legend
+        name: file name for saved plot
+        figSize: dimensions of plot
+        save: boolean, True if plot is to be saved as a .png file
+        settings: pyplot rc_context settings
     """
 
     msuGray = (153/255, 162/255, 162/255)
@@ -195,20 +173,8 @@ def plotDriftAndFluc(modelSols, energyFunc, title='', xlabel='xaxis',
     if names is None:
         names = tuple('Model ' + str(i+1) for i in range(n))
 
-    with plt.rc_context({'axes.linewidth': 6, 'axes.edgecolor': msuGreen,
-                         'xtick.color': msuGreen, 'ytick.color': msuGreen,
-                         'axes.labelpad': 20, 'xtick.major.size': 20,
-                         'xtick.minor.size': 20, 'xtick.major.width': 5,
-                         'xtick.minor.width': 5, 'ytick.major.size': 20,
-                         'ytick.minor.size': 20, 'ytick.major.width': 5,
-                         'ytick.minor.width': 5, 'xtick.labelsize': 48,
-                         'ytick.labelsize': 48, 'axes.titlepad': 25,
-                         'figure.figsize': figsize,
-                         'axes.labelcolor': msuGreen,
-                         'font.family': 'sans-serif', 'font.weight': 'bold',
-                         'axes.titlesize': 72, 'axes.labelsize': 48,
-                         'axes.labelweight': 'bold',
-                         'axes.titleweight': 'bold', 'legend.fontsize': 36}):
+    settings['figure.figsize'] = figsize
+    with plt.rc_context(settings):
 
         fig, ax1 = plt.subplots()
         ax2 = ax1.twinx()
