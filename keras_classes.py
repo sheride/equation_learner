@@ -202,7 +202,7 @@ class DynamReg(Regularizer):
         return regularization
 
     def get_config(self):
-        return {'l1': self.l1, 'l2': self.l1}
+        return {'l1': self.l1, 'l2': self.l2}
 
 
 class ConstantL0(Constraint):
