@@ -189,8 +189,6 @@ class DynamReg(Regularizer):
     """
 
     def __init__(self, l1=0., l2=0.):
-        # this is the important part: this has to be a variable (i.e.
-        # modifiable)
         self.l1 = K.variable(l1, name='weightRegL1', dtype=tf.float32)
         self.l2 = K.variable(l2, name='weightRegL2', dtype=tf.float32)
         self.uses_learning_phase = True
@@ -199,9 +197,9 @@ class DynamReg(Regularizer):
     def __call__(self, x):
         regularization = 0.
         if self.l1 != 0:
-            regularization += tf.reduce_sum(self.l1 * K.abs(x))
+            regularization += tf.reduce_sum(self.l1 * tf.abs(x))
         if self.l2 != 0:
-            regularization += tf.reduce_sum(self.l2 * K.square(x))
+            regularization += tf.reduce_sum(self.l2 * tf.square(x))
         return regularization
 
     def get_config(self):
