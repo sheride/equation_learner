@@ -177,21 +177,19 @@ class EQL:
 
     # References
         - [Extrapolation and learning equations](
-        https://arxiv.org/abs/1610.02995)
+            https://arxiv.org/abs/1610.02995)
     """
 
-    def __init__(self, inputSize, outputSize, numLayers,
-                 hypothesisSet=[[tf.identity, tf.math.sin, tf.math.cos,
-                                 tf.math.sigmoid],
-                                [sympy.Id, sympy.sin, sympy.cos,
-                                 sympy.Function("sigm")]],
+    def __init__(self, inputSize, outputSize, numLayers=3, hypothesisSet=None,
                  nonlinearInfo=None, learningRate=0.01, name='EQL'):
 
         self.inputSize = inputSize
         self.outputSize = outputSize
         self.numLayers = numLayers
-        self.layers = [None for i in range(numLayers * 2)]
-        self.hypothesisSet = hypothesisSet
+        self.layers = []
+        self.hypothesisSet = hypothesisSet or [
+                [tf.identity, tf.sin, tf.cos, tf.sigmoid],
+                [sympy.Id, sympy.sin, sympy.cos, sympy.Function("sigm")]]
         self.nonlinearInfo = nonlinearInfo or getNonlinearInfo(
                 self.numLayers-1, [4], 4)
         self.learningRate = learningRate
@@ -199,7 +197,7 @@ class EQL:
 
         with tf.name_scope(self.name) as scope:
             # Number of Keras layers: length of self.layers
-            numKerLay = len(self.layers)
+            numKerLay = numLayers * 2
             self.unaryFunctions = [[j % len(hypothesisSet[0])
                                     for j in range(self.nonlinearInfo[i][0])]
                                    for i in range(numLayers-1)]
@@ -215,36 +213,34 @@ class EQL:
                 stddev = np.sqrt(1 / (linIn * (u + 2 * v)))
                 randNorm = RandNorm(0, stddev=stddev, seed=2000)
                 # Prepping weight, bias tensors for ConstL0
-                wZeros = tf.cast(tf.zeros((linIn, u + 2 * v)), tf.bool)
-                bZeros = tf.cast(tf.zeros((u + 2 * v, )), tf.bool)
-                self.layers[i] = Dense(
-                    u + 2 * v,
-                    kernel_initializer=randNorm,
-                    kernel_regularizer=DynamReg(0),
-                    bias_regularizer=DynamReg(0),
-                    kernel_constraint=ConstantL0(wZeros),
-                    bias_constraint=ConstantL0(bZeros)
-                    )(self.layers[i-1])
+                wZeros = tf.fill((linIn, u + 2 * v), False)
+                bZeros = tf.fill((u + 2 * v,), False)
+                self.layers.append(Dense(u + 2 * v,
+                                         kernel_initializer=randNorm,
+                                         kernel_regularizer=DynamReg(0),
+                                         bias_regularizer=DynamReg(0),
+                                         kernel_constraint=ConstantL0(wZeros),
+                                         bias_constraint=ConstantL0(bZeros)
+                                         )(self.layers[i-1]))
                 # Non-linear component of layer 'i'
-                self.layers[i+1] = Nonlin(self.nonlinearInfo[int((i-1)/2)],
+                self.layers.append(Nonlin(self.nonlinearInfo[int((i-1)/2)],
                                           self.hypothesisSet[0],
                                           self.unaryFunctions[int((i-1)/2)],
-                                          )(self.layers[i])
+                                          )(self.layers[i]))
             # Final layer
             linIn = int(self.layers[numKerLay-2].shape[1])
             stddev = np.sqrt(1 / (self.outputSize * linIn))
             randNorm = RandNorm(0, stddev=stddev, seed=2000)
             # Prepping weight, bias tensors for ConstL0
-            wZeros = tf.cast(tf.zeros((linIn, self.outputSize)), tf.bool)
-            bZeros = tf.cast(tf.zeros((self.outputSize, )), tf.bool)
-            self.layers[numKerLay - 1] = Dense(
-                self.outputSize,
-                kernel_initializer=randNorm,
-                kernel_regularizer=DynamReg(0),
-                bias_regularizer=DynamReg(0),
-                kernel_constraint=ConstantL0(wZeros),
-                bias_constraint=ConstantL0(bZeros),
-                )(self.layers[numKerLay-2])
+            wZeros = tf.fill((linIn, self.outputSize), False)
+            bZeros = tf.fill((self.outputSize,), False)
+            self.layers.append(Dense(self.outputSize,
+                                     kernel_initializer=randNorm,
+                                     kernel_regularizer=DynamReg(0),
+                                     bias_regularizer=DynamReg(0),
+                                     kernel_constraint=ConstantL0(wZeros),
+                                     bias_constraint=ConstantL0(bZeros),
+                                     )(self.layers[numKerLay-2]))
 
             # Optimizer
             optimizer = Adam(lr=self.learningRate)
@@ -486,22 +482,20 @@ class EQLDIV:
 
     # References
         - [Learning Equations for Extrapolation and Control](
-           https://arxiv.org/abs/1806.07259)
+            https://arxiv.org/abs/1806.07259)
     """
 
-    def __init__(self, inputSize, outputSize, numLayers,
-                 hypothesisSet=[[tf.identity, tf.math.sin, tf.math.cos,
-                                 tf.math.sigmoid],
-                                [sympy.Id, sympy.sin, sympy.cos,
-                                 sympy.Function("sigm")]],
+    def __init__(self, inputSize, outputSize, numLayers=3, hypothesisSet=None,
                  nonlinearInfo=None, energyInfo=None, learningRate=0.01,
                  divThreshold=0.001, name='EQLDIV'):
 
         self.inputSize = inputSize
         self.outputSize = outputSize
         self.numLayers = numLayers
-        self.layers = [None for i in range(numLayers * 2 + 1)]
-        self.hypothesisSet = hypothesisSet
+        self.layers = []
+        self.hypothesisSet = hypothesisSet or [
+                [tf.identity, tf.sin, tf.cos, tf.sigmoid],
+                [sympy.Id, sympy.sin, sympy.cos, sympy.Function("sigm")]]
         self.nonlinearInfo = nonlinearInfo or getNonlinearInfo(
                 self.numLayers-1, [4], 4)
         self.energyInfo = energyInfo
@@ -512,11 +506,11 @@ class EQLDIV:
 
         with tf.name_scope(self.name) as scope:
             # Number of Keras layers: length of self.layers
-            numKerLay = len(self.layers)
+            numKerLay = numLayers * 2 + 1
             self.unaryFunctions = [[j % len(hypothesisSet[0])
                                     for j in range(self.nonlinearInfo[i][0])]
                                    for i in range(self.numLayers-1)]
-            self.layers[0] = Input((self.inputSize,), name='input')
+            self.layers.append(Input((self.inputSize,), name='input'))
 
             # Create all hidden layers (linear and nonlinear components)
             for i in range(1, (self.numLayers-1) * 2, 2):
@@ -528,49 +522,49 @@ class EQLDIV:
                 stddev = np.sqrt(1 / (linIn * (u + 2 * v)))
                 randNorm = RandNorm(0, stddev=stddev, seed=2000)
                 # Prepping weight, bias tensors for ConstL0
-                wZeros = tf.cast(tf.zeros((linIn, u + 2 * v)), tf.bool)
-                bZeros = tf.cast(tf.zeros((u + 2 * v, )), tf.bool)
-                self.layers[i] = Dense(u + 2 * v,
-                                       kernel_initializer=randNorm,
-                                       kernel_regularizer=DynamReg(0),
-                                       bias_regularizer=DynamReg(0),
-                                       kernel_constraint=ConstantL0(wZeros),
-                                       bias_constraint=ConstantL0(bZeros),
-                                       )(self.layers[i-1])
+                wZeros = tf.fill((linIn, u + 2 * v), False)
+                bZeros = tf.fill((u + 2 * v,), False)
+                self.layers.append(Dense(u + 2 * v,
+                                         kernel_initializer=randNorm,
+                                         kernel_regularizer=DynamReg(0),
+                                         bias_regularizer=DynamReg(0),
+                                         kernel_constraint=ConstantL0(wZeros),
+                                         bias_constraint=ConstantL0(bZeros),
+                                         )(self.layers[i-1]))
 
                 # Non-linear component of layer 'i'
-                self.layers[i+1] = Nonlin(self.nonlinearInfo[int((i-1)/2)],
+                self.layers.append(Nonlin(self.nonlinearInfo[int((i-1)/2)],
                                           self.hypothesisSet[0],
                                           self.unaryFunctions[int((i-1)/2)],
-                                          )(self.layers[i])
+                                          )(self.layers[i]))
 
             # Final layer
             linIn = int(self.layers[numKerLay - 3].shape[1])
             stddev = np.sqrt(1 / (self.outputSize * linIn))
             randNorm = RandNorm(0, stddev=stddev, seed=2000)
             # Prepping weight, bias tensors for ConstL0
-            wZeros = tf.cast(tf.zeros((linIn, self.outputSize*2)), tf.bool)
-            bZeros = tf.cast(tf.zeros((self.outputSize * 2,)), tf.bool)
-            self.layers[numKerLay - 2] = Dense(
-                outputSize * 2,
-                kernel_initializer=randNorm,
-                kernel_regularizer=DynamReg(0),
-                bias_regularizer=DynamReg(0),
-                activity_regularizer=DenPen(self.divThreshold),
-                kernel_constraint=ConstantL0(wZeros),
-                bias_constraint=ConstantL0(bZeros),
-                )(self.layers[numKerLay-3])
+            wZeros = tf.fill((linIn, self.outputSize*2), False)
+            bZeros = tf.fill((self.outputSize * 2,), False)
+            self.layers.append(Dense(outputSize * 2,
+                                     kernel_initializer=randNorm,
+                                     kernel_regularizer=DynamReg(0),
+                                     bias_regularizer=DynamReg(0),
+                                     activity_regularizer=DenPen(
+                                             self.divThreshold),
+                                     kernel_constraint=ConstantL0(wZeros),
+                                     bias_constraint=ConstantL0(bZeros),
+                                     )(self.layers[numKerLay-3]))
 
             # Division final layer component
             if self.energyInfo is not None:
                 energyFunc, energy, self.coef = self.energyInfo
                 energyReg = my.EnergyConsReg(energyFunc, energy, 0)
-                self.layers[numKerLay - 1] = my.Division(
-                        self.divThreshold, energyReg)(
-                                self.layers[numKerLay - 2])
+                self.layers.append(
+                        my.Division(self.divThreshold, energyReg)(
+                                self.layers[numKerLay - 2]))
             else:
-                self.layers[numKerLay - 1] = my.Division(
-                        self.divThreshold)(self.layers[numKerLay - 2])
+                self.layers.append(my.Division(
+                        self.divThreshold)(self.layers[numKerLay - 2]))
 
             # Optimizer
             optimizer = Adam(lr=self.learningRate)
@@ -670,9 +664,7 @@ class EQLDIV:
                                    verbose=verbose)[1]
 
     def getEquation(self):
-        """
-        Prints learned equation of a trained model.
-        """
+        """Prints learned equation of a trained model."""
 
         # prepares lists for weights and biases
         weights = [0 for i in range(int(len(self.model.get_weights())/2))]
