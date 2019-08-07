@@ -662,7 +662,7 @@ class EQLDIV:
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
                        batch_size=batchSize, verbose=verbose,
                        callbacks=[dynamicThreshold])
-        K.set_value(self.model.layers[n].threshold, 0.001)
+        K.set_value(self.model.layers[self.numLayers*2].threshold, 0.001)
 
     def evaluate(self, predictors, labels, batchSize=10, verbose=0):
         """Evaluates trained model on data"""
