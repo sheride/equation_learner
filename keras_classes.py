@@ -162,7 +162,7 @@ class Division(Layer):
 
     # initializing with values
     def __init__(self, threshold=0.001, loss=None, **kwargs):
-        self.threshold = K.variable(threshold, name='threshold')
+        self.threshold = threshold
         self.loss = loss
         super(Division, self).__init__(**kwargs)
 
