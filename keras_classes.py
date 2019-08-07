@@ -188,8 +188,6 @@ class DynamReg(Regularizer):
     """
 
     def __init__(self, l1=0., l2=0.):
-        # this is the important part: this has to be a K.variable (i.e.
-        # modifiable)
         self.l1 = K.variable(l1, name='weightRegL1', dtype=tf.float32)
         self.l2 = K.variable(l2, name='weightRegL2', dtype=tf.float32)
         self.uses_learning_phase = True
