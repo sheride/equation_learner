@@ -194,14 +194,17 @@ class EQL:
                 self.numLayers-1, [4], 4)
         self.learningRate = learningRate
         self.name = name
+        self.unaryFunctions = [
+                [j % len(hypothesisSet[0])
+                    for j in range(self.nonlinearInfo[i][0])]
+                for i in range(numLayers-1)]
+        self.model = None
 
         with tf.name_scope(self.name) as scope:
             # Number of Keras layers: length of self.layers
             numKerLay = numLayers * 2
-            self.unaryFunctions = [[j % len(hypothesisSet[0])
-                                    for j in range(self.nonlinearInfo[i][0])]
-                                   for i in range(numLayers-1)]
-            self.layers[0] = Input((inputSize,), name='input')
+
+            self.layers.append(Input((self.inputSize,), name='input'))
 
             # Create all hidden layers (linear and nonlinear components)
             for i in range(1, (self.numLayers-1) * 2, 2):
@@ -251,6 +254,51 @@ class EQL:
 
             # Compilation
             self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
+
+    def build(self, learningRate=0.01, optimizer=Adam, loss='mse',
+              metrics=[rmse]):
+        """WIP, building an EQL model from parameters"""
+
+        self.layers.append(Input((self.inputSize,)))
+
+        for i in range(1, self.numLayers * 2 - 2, 2):
+            index = int((i-1)/2)
+            u, v = self.nonlinearInfo[index]
+            inp = self.layers[-1].shape[1]
+            out = u + 2 * v
+            stddev = np.sqrt(1 / (inp * out))
+            randNorm = RandNorm(0, stddev=stddev)
+            wZeros = tf.fill((inp, out), False)
+            bZeros = tf.fill((out,), False)
+
+            self.layers.append(Dense(out,
+                                     kernel_initializer=randNorm,
+                                     kernel_regularizer=DynamReg(0),
+                                     bias_regularizer=DynamReg(0),
+                                     kernel_constraint=ConstantL0(wZeros),
+                                     bias_constraint=ConstantL0(bZeros)
+                                     )(self.layers[-1]))
+            self.layers.append(Nonlin(self.nonlinearInfo[index],
+                                      self.hypothesisSet[0],
+                                      self.unaryFunctions[index],
+                                      )(self.layers[-1]))
+
+        inp = int(self.layers[-1].shape[1])
+        stddev = np.sqrt(1 / (self.outputSize * inp))
+        randNorm = RandNorm(0, stddev=stddev)
+        wZeros = tf.fill((inp, self.outputSize), False)
+        bZeros = tf.fill((self.outputSize,), False)
+
+        self.layers.append(Dense(self.outputSize,
+                                 kernel_initializer=randNorm,
+                                 kernel_regularizer=DynamReg(0),
+                                 bias_regularizer=DynamReg(0),
+                                 kernel_constraint=ConstantL0(wZeros),
+                                 bias_constraint=ConstantL0(bZeros),
+                                 )(self.layers[-1]))
+
+        self.model = Model(inputs=self.layers[0], outputs=self.layers[-1])
+        self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
     def fit(self, predictors, labels, numEpoch, reg=10**-3, batchSize=20,
             threshold=0.1, verbose=0):

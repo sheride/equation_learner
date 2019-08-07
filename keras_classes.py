@@ -22,25 +22,31 @@ class eqlLayer(Layer):
     WORK IN PROGRESS: COMBINED LINEAR/NONLINEAR LAYERS
     """
 
-    def __init__(self, nodeInfo, hypSet, unaryFunc, kernel_initializer=None,
-                 bias_initializer=None, **kwargs):
+    def __init__(self, nodeInfo, hypSet, unaryFunc, kernel_init=None,
+                 bias_init=None, regularizer, constraint, **kwargs):
         self.nodeInfo = nodeInfo
         self.hypSet = hypSet
         self.unaryFunc = unaryFunc
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
+        self.regularizer = regularizer
+        self.constraint = constraint
         super(eqlLayer, self).__init__(**kwargs)
 
     def build(self, input_shape):
         u, v = self.nodeInfo
         self.W = self.add_weight(name='kernel',
                                  shape=(input_shape[1], u + 2 * v),
-                                 initializer=self.kernel_initializer,
-                                 trainable=True)
+                                 initializer=self.kernel_init,
+                                 regularizer=self.regularizer,
+                                 trainable=True,
+                                 constraint=self.constraint)
         self.b = self.add_weight(name='bias',
                                  shape=(u + 2 * v, ),
-                                 initializer=self.kernel_initializer,
-                                 trainable=True)
+                                 initializer=self.bias_init,
+                                 regularizer=self.regularizer,
+                                 trainable=True,
+                                 constraint=self.constraint)
         super(eqlLayer, self).build(input_shape)
 
     def call(self, x):
