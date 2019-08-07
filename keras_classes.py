@@ -11,10 +11,10 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+import tensorflow.keras.backend as K
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.regularizers import Regularizer
 from tensorflow.keras.constraints import Constraint
-from tensorflow.keras.backend import variable
 
 
 class eqlLayer(Layer):
@@ -99,8 +99,7 @@ class Nonlinear(Layer):
         for i in range(u, u + 2 * v, 2):
             nonlinOutput = tf.concat(
                     [nonlinOutput,
-                     tf.multiply(linOutput[:, i:i+1],
-                                 linOutput[:, i+1:i+2])],
+                     tf.multiply(linOutput[:, i:i+1], linOutput[:, i+1:i+2])],
                     axis=1)
 
         return nonlinOutput
@@ -131,7 +130,7 @@ class EnergyConsReg(Regularizer):
     def __init__(self, energyFunc, energy, coef):
         self.energyFunc = energyFunc
         self.energy = energy
-        self.coef = variable(coef, name='energyFunc')
+        self.coef = K.variable(coef, name='energyFunc')
 
     def __call__(self, x):
         """
@@ -185,14 +184,14 @@ class DynamReg(Regularizer):
     Dynamic Keras Regularizer
 
     No change from Keras regularizer, except l1 and l2 are now tensorflow
-    variables which can be changed during the training schedule.
+    K.variables which can be changed during the training schedule.
     """
 
     def __init__(self, l1=0., l2=0.):
-        # this is the important part: this has to be a variable (i.e.
+        # this is the important part: this has to be a K.variable (i.e.
         # modifiable)
-        self.l1 = variable(l1, name='weightRegL1', dtype=tf.float32)
-        self.l2 = variable(l2, name='weightRegL2', dtype=tf.float32)
+        self.l1 = K.variable(l1, name='weightRegL1', dtype=tf.float32)
+        self.l2 = K.variable(l2, name='weightRegL2', dtype=tf.float32)
         self.uses_learning_phase = True
         self.p = None
 
@@ -205,8 +204,7 @@ class DynamReg(Regularizer):
         return regularization
 
     def get_config(self):
-        return {'l1': self.l1,
-                'l2': self.l1}
+        return {'l1': self.l1, 'l2': self.l1}
 
 
 class ConstantL0(Constraint):
@@ -222,7 +220,7 @@ class ConstantL0(Constraint):
     """
 
     def __init__(self, toZero):
-        self.toZero = variable(toZero, name='toZero', dtype=tf.bool)
+        self.toZero = K.variable(toZero, name='toZero', dtype=tf.bool)
 
     def __call__(self, w):
         return tf.where(self.toZero, tf.zeros_like(w), w)
@@ -243,7 +241,7 @@ class DenominatorPenalty(Regularizer):
     """
 
     def __init__(self, divThreshold=0.001):
-        self.divThreshold = variable(divThreshold, name='divThreshold')
+        self.divThreshold = K.variable(divThreshold, name='divThreshold')
 
     def __call__(self, x):
         """

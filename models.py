@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 
 import tensorflow as tf
 from tensorflow.keras import Input, Model
-from tensorflow.keras.backend import set_value, function
+import tensorflow.keras.backend as K
 from tensorflow.keras.initializers import RandomNormal as RandNorm
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
@@ -282,9 +282,9 @@ class EQL:
         # PHASE 2: REGULARIZATION (7T/10)
         # updating weight, bias regularization
         for i in range(1, len(self.model.layers), 2):
-            set_value(self.model.layers[i].kernel_regularizer.l1,
+            K.set_value(self.model.layers[i].kernel_regularizer.l1,
                       reg)
-            set_value(self.model.layers[i].bias_regularizer.l1,
+            K.set_value(self.model.layers[i].bias_regularizer.l1,
                       reg)
         self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)),
                        batch_size=batchSize, verbose=verbose)
@@ -292,13 +292,13 @@ class EQL:
         # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION (T/20)
         # updating weight, bias regularization
         for i in range(1, len(self.model.layers), 2):
-            set_value(self.model.layers[i].kernel_regularizer.l1, 0)
-            set_value(self.model.layers[i].bias_regularizer.l1, 0)
+            K.set_value(self.model.layers[i].kernel_regularizer.l1, 0)
+            K.set_value(self.model.layers[i].bias_regularizer.l1, 0)
             weight, bias = self.model.layers[i].get_weights()
-            set_value(self.model.layers[i].kernel_constraint.toZero,
+            K.set_value(self.model.layers[i].kernel_constraint.toZero,
                       np.less(np.abs(weight),
                               np.full(weight.shape, threshold)))
-            set_value(self.model.layers[i].bias_constraint.toZero,
+            K.set_value(self.model.layers[i].bias_constraint.toZero,
                       np.less(np.abs(bias), np.full(bias.shape, threshold)))
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
                        batch_size=batchSize, verbose=verbose)
@@ -440,7 +440,7 @@ class EQL:
         x = np.reshape(x, (1, 1, self.inputSize)).tolist()
         gradients = [tf.gradients(self.model.output[:, i], self.model.input)[0]
                      for i in range(4)]
-        funcs = [function((self.model.input, ), [g]) for g in gradients]
+        funcs = [K.function((self.model.input, ), [g]) for g in gradients]
         jacobian = np.concatenate([func(x)[0] for func in funcs], axis=0)
 
         with tf.Session() as sess:
@@ -606,14 +606,14 @@ class EQLDIV:
         def phase1(epoch, logs):
             newThresh = 1 / np.sqrt(epoch + 1)
             self.model.layers[n].threshold = newThresh
-            set_value(
+            K.set_value(
                     self.model.layers[n-1].activity_regularizer.divThreshold,
                     newThresh)
 
         def phase2(epoch, logs):
             newThresh = 1 / np.sqrt(int(numEpoch * (1 / 4)) + epoch + 1)
             self.model.layers[n].threshold = newThresh
-            set_value(
+            K.set_value(
                     self.model.layers[n-1].activity_regularizer.divThreshold,
                     newThresh)
 
@@ -621,7 +621,7 @@ class EQLDIV:
             newThresh = 1 / np.sqrt(
                     int(numEpoch * (7/10)) + int(numEpoch * (1/4)) + epoch + 1)
             self.model.layers[n].threshold = newThresh
-            set_value(
+            K.set_value(
                     self.model.layers[n-1].activity_regularizer.divThreshold,
                     newThresh)
 
@@ -635,13 +635,13 @@ class EQLDIV:
 
         # PHASE 2: REGULARIZATION (7T/10)
         if self.energyInfo is not None:
-            set_value(
+            K.set_value(
                     self.model.layers[self.numLayers * 2].loss.coef, self.coef)
         dynamicThreshold = LambCall(on_epoch_begin=phase2)
         for i in range(1, len(self.model.layers), 2):
-            set_value(self.model.layers[i].kernel_regularizer.l1,
+            K.set_value(self.model.layers[i].kernel_regularizer.l1,
                       regStrength)
-            set_value(self.model.layers[i].bias_regularizer.l1,
+            K.set_value(self.model.layers[i].bias_regularizer.l1,
                       regStrength)
         self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)),
                        batch_size=batchSize, verbose=verbose,
@@ -650,13 +650,13 @@ class EQLDIV:
         # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION (T/20)
         dynamicThreshold = LambCall(on_epoch_begin=phase3)
         for i in range(1, len(self.model.layers), 2):
-            set_value(self.model.layers[i].kernel_regularizer.l1, 0)
-            set_value(self.model.layers[i].bias_regularizer.l1, 0)
+            K.set_value(self.model.layers[i].kernel_regularizer.l1, 0)
+            K.set_value(self.model.layers[i].bias_regularizer.l1, 0)
             weight, bias = self.model.layers[i].get_weights()
-            set_value(self.model.layers[i].kernel_constraint.toZero,
+            K.set_value(self.model.layers[i].kernel_constraint.toZero,
                       np.less(np.abs(weight),
                               np.full(weight.shape, normThreshold)))
-            set_value(self.model.layers[i].bias_constraint.toZero,
+            K.set_value(self.model.layers[i].bias_constraint.toZero,
                       np.less(np.abs(bias),
                               np.full(bias.shape, normThreshold)))
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
@@ -849,7 +849,7 @@ class EQLDIV:
         x = np.reshape(x, (1, 1, self.inputSize)).tolist()
         gradients = [tf.gradients(self.model.output[:, i], self.model.input)[0]
                      for i in range(4)]
-        funcs = [function((self.model.input, ), [g]) for g in gradients]
+        funcs = [K.function((self.model.input, ), [g]) for g in gradients]
         jacobian = np.concatenate([func(x)[0] for func in funcs], axis=0)
 
         with tf.Session() as sess:
