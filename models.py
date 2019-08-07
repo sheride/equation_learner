@@ -12,13 +12,12 @@ import sympy
 import matplotlib.pyplot as plt
 
 import tensorflow as tf
-import keras.backend as K
-from keras import Model
-from keras.initializers import RandomNormal as RandNorm
-from keras.engine.input_layer import Input
-from keras.layers import Dense
-from keras.optimizers import Adam
-from keras.callbacks import LambdaCallback as LambCall
+from tensorflow.keras import Input, Model
+import tensorflow.keras.backend as K
+from tensorflow.keras.initializers import RandomNormal as RandNorm
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import LambdaCallback as LambCall
 
 from . import keras_classes as my
 from .keras_classes import Nonlinear as Nonlin

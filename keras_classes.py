@@ -11,11 +11,10 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-import keras
-from keras import backend as K
-from keras.layers import Layer
-from keras.regularizers import Regularizer
-from keras.constraints import Constraint
+import tensorflow.keras.backend as K
+from tensorflow.keras.layers import Layer
+from tensorflow.keras.regularizers import Regularizer
+from tensorflow.keras.constraints import Constraint
 
 
 class eqlLayer(Layer):
