@@ -6,7 +6,7 @@ This is a reproduction of the EQL machine learning model and its variations [1] 
 
 ## Getting Started
 
-It's worth noting that the resources in this repository are not perfectly documented and also highly customized to the research of Elijah Sheridan. Use at your own risk.
+It's worth noting that the resources in this repository are not perfectly documented and also highly customized to my research. Use at your own risk.
 
 That being said, this repository can be used via a cloning to either your working directory or the folder housing your downloaded Python packages. `models.py` houses the `EQL` and `EQLDIV` classes, the two ML models developed in this project. These classes depend upon Keras and Tensorflow, along with custom Keras Layer/Constraint/Regularizer classes which can be found in the `keras_classes.py` file. Example code for creating and training the `EQLDIV` model shown in the image above is as follows.
 
