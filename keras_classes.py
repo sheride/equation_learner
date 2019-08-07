@@ -9,10 +9,11 @@ Created on Fri Jun 21 13:44:11 2019
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
+
+import tensorflow as tf
 import keras
 from keras import backend as K
 from keras.layers import Layer
-import tensorflow as tf
 
 
 class eqlLayer(Layer):
@@ -136,7 +137,8 @@ class EnergyConsReg(keras.regularizers.Regularizer):
         minibatch to the loss function
         """
 
-        return self.coef * K.sum(tf.abs(self.energyFunc(x) - self.energy))
+        return self.coef * tf.reduce_sum(
+                tf.abs(self.energyFunc(x) - self.energy))
 
     def get_config(self):
         return {'Energy Function': self.energyFunc, 'energy': self.energy,
@@ -187,17 +189,17 @@ class DynamReg(keras.regularizers.Regularizer):
     def __init__(self, l1=0., l2=0.):
         # this is the important part: this has to be a variable (i.e.
         # modifiable)
-        self.l1 = K.variable(l1, name='weightReg')
-        self.l2 = K.variable(l2, name='weightReg')
+        self.l1 = K.variable(l1, name='weightRegL1', dtype=tf.float32)
+        self.l2 = K.variable(l2, name='weightRegL2', dtype=tf.float32)
         self.uses_learning_phase = True
         self.p = None
 
     def __call__(self, x):
         regularization = 0.
-        if self.l1:
-            regularization += K.sum(self.l1 * K.abs(x))
-        if self.l2:
-            regularization += K.sum(self.l2 * K.square(x))
+        if self.l1 != 0:
+            regularization += tf.reduce_sum(self.l1 * K.abs(x))
+        if self.l2 != 0:
+            regularization += tf.reduce_sum(self.l2 * K.square(x))
         return regularization
 
     def get_config(self):
@@ -220,7 +222,7 @@ class ConstantL0(keras.constraints.Constraint):
         self.toZero = K.variable(toZero, name='toZero', dtype=tf.bool)
 
     def __call__(self, w):
-        return tf.where(self.toZero, K.zeros_like(w), w)
+        return tf.where(self.toZero, tf.zeros_like(w), w)
         # ^^replaces weights matrix entries with original value if greater than
         # threshold, zero otherwise
 

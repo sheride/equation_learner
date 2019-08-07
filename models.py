@@ -431,7 +431,8 @@ class EQL:
         Prints the Jacobian of the learned function, evaluated at a point
 
         # Arguments
-            x: array-like with self.inputSize elements
+            x: point at which Jacobian is evaluated, array-like with
+                self.inputSize elements
         """
         x = np.reshape(x, (1, 1, self.inputSize)).tolist()
         gradients = [tf.gradients(self.model.output[:, i], self.model.input)[0]
@@ -816,8 +817,8 @@ class EQLDIV:
     def odecompat(self, t, x):
         """Wrapper for Keras' predict function, solve_ivp compatible"""
 
-        # Bad hack for experimentations with feature engineering for double
-        # pendulum
+        # if statement is bad hack for experimentations with feature
+        # engineering for double pendulum
         if self.inputSize == 7:
             if len(np.array(x).shape) == 2:
                 y = [x[0, 0] - x[0, 2], x[0, 1]**2, x[0, 3]**2]
@@ -839,7 +840,8 @@ class EQLDIV:
         Prints the Jacobian of the learned function, evaluated at a point
 
         # Arguments
-            x: array-like with self.inputSize elements
+            x: point at which Jacobian is evaluated, array-like with
+                self.inputSize elements
         """
         x = np.reshape(x, (1, 1, self.inputSize)).tolist()
         gradients = [tf.gradients(self.model.output[:, i], self.model.input)[0]
