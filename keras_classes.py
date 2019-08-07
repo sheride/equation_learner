@@ -14,6 +14,8 @@ import tensorflow as tf
 import keras
 from keras import backend as K
 from keras.layers import Layer
+from keras.regularizers import Regularizer
+from keras.constraints import Constraint
 
 
 class eqlLayer(Layer):
@@ -107,7 +109,7 @@ class Nonlinear(Layer):
         return (input_shape[0], self.nodeInfo[0] + self.nodeInfo[1])
 
 
-class EnergyConsReg(keras.regularizers.Regularizer):
+class EnergyConsReg(Regularizer):
     """
     Energy Conservation Keras Activity Regularizer
 
@@ -178,7 +180,7 @@ class Division(Layer):
         return (input_shape[0], int(input_shape[1]/2))
 
 
-class DynamReg(keras.regularizers.Regularizer):
+class DynamReg(Regularizer):
     """
     Dynamic Keras Regularizer
 
@@ -206,7 +208,7 @@ class DynamReg(keras.regularizers.Regularizer):
         return {'l1': self.l1, 'l2': self.l2}
 
 
-class ConstantL0(keras.constraints.Constraint):
+class ConstantL0(Constraint):
     """
     Constant L0 Norm Keras Constraint
 
@@ -230,7 +232,7 @@ class ConstantL0(keras.constraints.Constraint):
         return {'toZero': self.toZero}
 
 
-class DenominatorPenalty(keras.regularizers.Regularizer):
+class DenominatorPenalty(Regularizer):
     """
     Denominator Penalty Keras Activity Regularizer
 
@@ -250,8 +252,8 @@ class DenominatorPenalty(keras.regularizers.Regularizer):
         """
 
         x = tf.reshape(x, (-1, 2))
-        output = K.sum(K.maximum(self.divThreshold - x, K.zeros_like(x)),
-                       axis=0)[1]
+        output = tf.reduce_sum(
+                tf.maximum(self.divThreshold - x, tf.zeros_like(x)), axis=0)[1]
         return output
 
     def get_config(self):
