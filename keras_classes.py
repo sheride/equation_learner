@@ -60,8 +60,7 @@ class eqlLayer(Layer):
         for i in range(u, u + 2 * v, 2):
             nonlinOutput = tf.concat(
                     [nonlinOutput,
-                     tf.math.multiply(linOutput[:, i:i+1],
-                                      linOutput[:, i+1:i+2])],
+                     tf.multiply(linOutput[:, i:i+1], linOutput[:, i+1:i+2])],
                     axis=1)
 
 
@@ -100,8 +99,7 @@ class Nonlinear(Layer):
         for i in range(u, u + 2 * v, 2):
             nonlinOutput = tf.concat(
                     [nonlinOutput,
-                     tf.math.multiply(linOutput[:, i:i+1],
-                                      linOutput[:, i+1:i+2])],
+                     tf.multiply(linOutput[:, i:i+1], linOutput[:, i+1:i+2])],
                     axis=1)
 
         return nonlinOutput
@@ -141,7 +139,7 @@ class EnergyConsReg(keras.regularizers.Regularizer):
         minibatch to the loss function
         """
 
-        return self.coef * K.sum(tf.math.abs(self.energyFunc(x) - self.energy))
+        return self.coef * K.sum(tf.abs(self.energyFunc(x) - self.energy))
 
     def get_config(self):
         return {'Energy Function': self.energyFunc, 'energy': self.energy,
@@ -208,8 +206,7 @@ class DynamReg(keras.regularizers.Regularizer):
         return regularization
 
     def get_config(self):
-        return {'l1': float(self.l1.eval(session=K.get_session())),
-                'l2': float(self.l2.eval(session=K.get_session()))}
+        return {'l1': self.l1, 'l2': self.l2}
 
 
 class ConstantL0(keras.constraints.Constraint):
@@ -233,7 +230,7 @@ class ConstantL0(keras.constraints.Constraint):
         # threshold, zero otherwise
 
     def get_config(self):
-        return {'toZero': self.toZero.eval(session=K.get_session())}
+        return {'toZero': self.toZero}
 
 
 class DenominatorPenalty(keras.regularizers.Regularizer):
