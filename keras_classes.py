@@ -159,7 +159,8 @@ class Division(Layer):
     """
 
     def __init__(self, threshold=0.001, loss=None, **kwargs):
-        self.threshold = threshold
+        self.threshold = tf.Variable(threshold, name='threshold',
+                                     trainable=False)
         self.loss = loss
         super(Division, self).__init__(**kwargs)
 

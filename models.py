@@ -605,14 +605,14 @@ class EQLDIV:
 
         def phase1(epoch, logs):
             newThresh = 1 / np.sqrt(epoch + 1)
-            self.model.layers[n].threshold = newThresh
+            K.set_value(self.model.layers[n].threshold, newThresh)
             K.set_value(
                     self.model.layers[n-1].activity_regularizer.divThreshold,
                     newThresh)
 
         def phase2(epoch, logs):
             newThresh = 1 / np.sqrt(int(numEpoch * (1 / 4)) + epoch + 1)
-            self.model.layers[n].threshold = newThresh
+            K.set_value(self.model.layers[n].threshold, newThresh)
             K.set_value(
                     self.model.layers[n-1].activity_regularizer.divThreshold,
                     newThresh)
@@ -620,7 +620,7 @@ class EQLDIV:
         def phase3(epoch, logs):
             newThresh = 1 / np.sqrt(
                     int(numEpoch * (7/10)) + int(numEpoch * (1/4)) + epoch + 1)
-            self.model.layers[n].threshold = newThresh
+            K.set_value(self.model.layers[n].threshold, newThresh)
             K.set_value(
                     self.model.layers[n-1].activity_regularizer.divThreshold,
                     newThresh)
@@ -662,7 +662,7 @@ class EQLDIV:
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
                        batch_size=batchSize, verbose=verbose,
                        callbacks=[dynamicThreshold])
-        self.model.layers[self.numLayers*2].threshold = 0.001
+        K.set_value(self.model.layers[n].threshold, 0.001)
 
     def evaluate(self, predictors, labels, batchSize=10, verbose=0):
         """Evaluates trained model on data"""
