@@ -549,8 +549,8 @@ class EQLDIV:
             stddev = np.sqrt(1 / (self.outputSize * linIn))
             randNorm = RandNorm(0, stddev=stddev, seed=2000)
             # Prepping weight, bias tensors for ConstL0
-            wZeros = tf.cast(K.zeros((linIn, self.outputSize*2)), tf.bool)
-            bZeros = tf.cast(K.zeros((self.outputSize * 2,)), tf.bool)
+            wZeros = tf.cast(tf.zeros((linIn, self.outputSize*2)), tf.bool)
+            bZeros = tf.cast(tf.zeros((self.outputSize * 2,)), tf.bool)
             self.layers[numKerLay - 2] = Dense(
                 outputSize * 2,
                 kernel_initializer=randNorm,
