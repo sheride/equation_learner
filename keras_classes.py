@@ -9,10 +9,12 @@ Created on Fri Jun 21 13:44:11 2019
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-import tensorflow.keras
-from tensorflow.keras import backend as K
-from tensorflow.keras.layers import Layer
+
 import tensorflow as tf
+from tensorflow.keras.layers import Layer
+from tensorflow.keras.regularizers import Regularizer
+from tensorflow.keras.constraints import Constraint
+from tensorflow.keras.backend import variable
 
 
 class eqlLayer(Layer):
@@ -20,7 +22,6 @@ class eqlLayer(Layer):
     WORK IN PROGRESS: COMBINED LINEAR/NONLINEAR LAYERS
     """
 
-    # initializing with values
     def __init__(self, nodeInfo, hypSet, unaryFunc, kernel_initializer=None,
                  bias_initializer=None, **kwargs):
         self.nodeInfo = nodeInfo
@@ -87,7 +88,6 @@ class Nonlinear(Layer):
         self.unaryFunc = unaryFunc
         super(Nonlinear, self).__init__(**kwargs)
 
-    # behavior of non-linear layer
     def call(self, linOutput):
         u, v = self.nodeInfo
         nonlinOutput = self.hypSet[self.unaryFunc[0]](linOutput[:, :1])
@@ -110,7 +110,7 @@ class Nonlinear(Layer):
         return (input_shape[0], self.nodeInfo[0] + self.nodeInfo[1])
 
 
-class EnergyConsReg(tensorflow.keras.regularizers.Regularizer):
+class EnergyConsReg(Regularizer):
     """
     Energy Conservation Keras Activity Regularizer
 
@@ -132,7 +132,7 @@ class EnergyConsReg(tensorflow.keras.regularizers.Regularizer):
     def __init__(self, energyFunc, energy, coef):
         self.energyFunc = energyFunc
         self.energy = energy
-        self.coef = K.variable(coef, name='energyFunc')
+        self.coef = variable(coef, name='energyFunc')
 
     def __call__(self, x):
         """
@@ -160,7 +160,6 @@ class Division(Layer):
             Layer.add_loss()
     """
 
-    # initializing with values
     def __init__(self, threshold=0.001, loss=None, **kwargs):
         self.threshold = threshold
         self.loss = loss
@@ -171,19 +170,18 @@ class Division(Layer):
         denominators = linOutput[:, 1::2]
         # following three lines adapted from
         # https://github.com/martius-lab/EQL_Tensorflow
-        zeros = K.cast(denominators > self.threshold, dtype=tf.float32)
-        denominators = tf.reciprocal(K.abs(denominators) + 1e-10)
+        zeros = tf.cast(denominators > self.threshold, dtype=tf.float32)
+        denominators = tf.reciprocal(tf.math.abs(denominators) + 1e-10)
         divOutput = numerators * denominators * zeros
         if self.loss is not None:
             self.add_loss(self.loss(divOutput))
         return divOutput
 
-    # returns the shape of a non-linear layer using the nodeInfo list
     def compute_output_shape(self, input_shape):
         return (input_shape[0], int(input_shape[1]/2))
 
 
-class DynamReg(tensorflow.keras.regularizers.Regularizer):
+class DynamReg(Regularizer):
     """
     Dynamic Keras Regularizer
 
@@ -194,8 +192,8 @@ class DynamReg(tensorflow.keras.regularizers.Regularizer):
     def __init__(self, l1=0., l2=0.):
         # this is the important part: this has to be a variable (i.e.
         # modifiable)
-        self.l1 = K.variable(l1, name='weightRegL1', dtype=tf.float32)
-        self.l2 = K.variable(l2, name='weightRegL2', dtype=tf.float32)
+        self.l1 = variable(l1, name='weightRegL1', dtype=tf.float32)
+        self.l2 = variable(l2, name='weightRegL2', dtype=tf.float32)
         self.uses_learning_phase = True
         self.p = None
 
@@ -212,7 +210,7 @@ class DynamReg(tensorflow.keras.regularizers.Regularizer):
                 'l2': self.l1}
 
 
-class ConstantL0(tensorflow.keras.constraints.Constraint):
+class ConstantL0(Constraint):
     """
     Constant L0 Norm Keras Constraint
 
@@ -225,7 +223,7 @@ class ConstantL0(tensorflow.keras.constraints.Constraint):
     """
 
     def __init__(self, toZero):
-        self.toZero = K.variable(toZero, name='toZero', dtype=tf.bool)
+        self.toZero = variable(toZero, name='toZero', dtype=tf.bool)
 
     def __call__(self, w):
         return tf.where(self.toZero, tf.zeros_like(w), w)
@@ -236,7 +234,7 @@ class ConstantL0(tensorflow.keras.constraints.Constraint):
         return {'toZero': self.toZero}
 
 
-class DenominatorPenalty(tensorflow.keras.regularizers.Regularizer):
+class DenominatorPenalty(Regularizer):
     """
     Denominator Penalty Keras Activity Regularizer
 
@@ -246,18 +244,19 @@ class DenominatorPenalty(tensorflow.keras.regularizers.Regularizer):
     """
 
     def __init__(self, divThreshold=0.001):
-        self.divThreshold = K.variable(divThreshold, name='divThreshold')
+        self.divThreshold = variable(divThreshold, name='divThreshold')
 
     def __call__(self, x):
         """
         Regularization penalty:
 
-        sum of max(divThreshold - x, 0) over all denominators x
+        Sum of max(divThreshold - x, 0) over all denominators x
         """
 
         x = tf.reshape(x, (-1, 2))
-        output = K.sum(K.maximum(self.divThreshold - x, K.zeros_like(x)),
-                       axis=0)[1]
+        output = tf.math.reduce_sum(tf.maximum(self.divThreshold - x,
+                                               tf.zeros_like(x)),
+                                    axis=0)[1]
         return output
 
     def get_config(self):
