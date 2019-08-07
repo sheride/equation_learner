@@ -437,6 +437,7 @@ class EQL:
             x: point at which Jacobian is evaluated, array-like with
                 self.inputSize elements
         """
+
         x = np.reshape(x, (1, 1, self.inputSize)).tolist()
         gradients = [tf.gradients(self.model.output[:, i], self.model.input)[0]
                      for i in range(4)]
