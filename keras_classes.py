@@ -20,7 +20,6 @@ class eqlLayer(Layer):
     WORK IN PROGRESS: COMBINED LINEAR/NONLINEAR LAYERS
     """
 
-    # initializing with values
     def __init__(self, nodeInfo, hypSet, unaryFunc, kernel_initializer=None,
                  bias_initializer=None, **kwargs):
         self.nodeInfo = nodeInfo
@@ -86,7 +85,6 @@ class Nonlinear(Layer):
         self.unaryFunc = unaryFunc
         super(Nonlinear, self).__init__(**kwargs)
 
-    # behavior of non-linear layer
     def call(self, linOutput):
         u, v = self.nodeInfo
         nonlinOutput = self.hypSet[self.unaryFunc[0]](linOutput[:, :1])
@@ -104,7 +102,6 @@ class Nonlinear(Layer):
 
         return nonlinOutput
 
-    # returns the shape of a non-linear layer using the nodeInfo list
     def compute_output_shape(self, input_shape):
         return (input_shape[0], self.nodeInfo[0] + self.nodeInfo[1])
 
@@ -158,7 +155,6 @@ class Division(Layer):
             Layer.add_loss()
     """
 
-    # initializing with values
     def __init__(self, threshold=0.001, loss=None, **kwargs):
         self.threshold = K.variable(threshold, name='threshold')
         self.loss = loss
@@ -176,7 +172,6 @@ class Division(Layer):
             self.add_loss(self.loss(divOutput))
         return divOutput
 
-    # returns the shape of a non-linear layer using the nodeInfo list
     def compute_output_shape(self, input_shape):
         return (input_shape[0], int(input_shape[1]/2))
 
@@ -249,7 +244,7 @@ class DenominatorPenalty(keras.regularizers.Regularizer):
         """
         Regularization penalty:
 
-        sum of max(divThreshold - x, 0) over all denominators x
+        Sum of max(divThreshold - x, 0) over all denominators x
         """
 
         x = tf.reshape(x, (-1, 2))
