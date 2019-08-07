@@ -61,8 +61,7 @@ class eqlLayer(Layer):
         for i in range(u, u + 2 * v, 2):
             nonlinOutput = tf.concat(
                     [nonlinOutput,
-                     tf.math.multiply(linOutput[:, i:i+1],
-                                      linOutput[:, i+1:i+2])],
+                     tf.multiply(linOutput[:, i:i+1], linOutput[:, i+1:i+2])],
                     axis=1)
 
 
@@ -100,8 +99,8 @@ class Nonlinear(Layer):
         for i in range(u, u + 2 * v, 2):
             nonlinOutput = tf.concat(
                     [nonlinOutput,
-                     tf.math.multiply(linOutput[:, i:i+1],
-                                      linOutput[:, i+1:i+2])],
+                     tf.multiply(linOutput[:, i:i+1],
+                                 linOutput[:, i+1:i+2])],
                     axis=1)
 
         return nonlinOutput
@@ -140,8 +139,8 @@ class EnergyConsReg(Regularizer):
         minibatch to the loss function
         """
 
-        return self.coef * tf.math.reduce_sum(
-                tf.math.abs(self.energyFunc(x) - self.energy))
+        return self.coef * tf.reduce_sum(
+                tf.abs(self.energyFunc(x) - self.energy))
 
     def get_config(self):
         return {'Energy Function': self.energyFunc, 'energy': self.energy,
@@ -171,7 +170,7 @@ class Division(Layer):
         # following three lines adapted from
         # https://github.com/martius-lab/EQL_Tensorflow
         zeros = tf.cast(denominators > self.threshold, dtype=tf.float32)
-        denominators = tf.reciprocal(tf.math.abs(denominators) + 1e-10)
+        denominators = tf.reciprocal(tf.abs(denominators) + 1e-10)
         divOutput = numerators * denominators * zeros
         if self.loss is not None:
             self.add_loss(self.loss(divOutput))
@@ -200,9 +199,9 @@ class DynamReg(Regularizer):
     def __call__(self, x):
         regularization = 0.
         if self.l1 != 0:
-            regularization += tf.math.reduce_sum(self.l1 * tf.abs(x))
+            regularization += tf.reduce_sum(self.l1 * tf.abs(x))
         if self.l2 != 0:
-            regularization += tf.math.reduce_sum(self.l2 * tf.square(x))
+            regularization += tf.reduce_sum(self.l2 * tf.square(x))
         return regularization
 
     def get_config(self):
@@ -254,9 +253,8 @@ class DenominatorPenalty(Regularizer):
         """
 
         x = tf.reshape(x, (-1, 2))
-        output = tf.math.reduce_sum(tf.maximum(self.divThreshold - x,
-                                               tf.zeros_like(x)),
-                                    axis=0)[1]
+        output = tf.reduce_sum(
+                tf.maximum(self.divThreshold - x, tf.zeros_like(x)), axis=0)[1]
         return output
 
     def get_config(self):
