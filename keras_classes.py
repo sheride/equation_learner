@@ -15,6 +15,7 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.regularizers import Regularizer
 from tensorflow.keras.initializers import Zeros
+from tensorflow.keras.constraints import Constraint
 
 
 class eqlLayer(Layer):
@@ -53,25 +54,17 @@ class eqlLayer(Layer):
 
     def call(self, x):
         # linear computation
-        self.W = self.W * self.Wtrimmer
+        self.W = self.W * self.Wtrimmer  # for L0 norm conservation
         self.b = self.b * self.btrimmer
-        linOutput = tf.linalg.matmul(x, self.W) + self.b
+        linOutput = tf.matmul(x, self.W) + self.b
 
         # nonlinear computation
-        # unary functions
         u, v = self.nodeInfo
-        output = self.hypSet[self.unaryFunc[0]](linOutput[:, :1])
-        for i in range(1, u):
-            output = tf.concat(
-                    [output,
-                     self.hypSet[self.unaryFunc[i]](linOutput[:, i:i+1])],
-                    axis=1)
-        # binary functions (multiplication)
-        for i in range(u, u + 2 * v, 2):
-            output = tf.concat(
-                    [output,
-                     tf.multiply(linOutput[:, i:i+1], linOutput[:, i+1:i+2])],
-                    axis=1)
+        output = [self.hypSet[self.unaryFunc[i]](linOutput[:, i:i+1])
+                  for i in range(u)]
+        output.extend([linOutput[:, i:i+1] * linOutput[:, i+1:i+2]
+                       for i in range(u, u+2*v, 2)])
+        output = tf.concat(output, axis=1)
 
         # regularization
         regularizationLoss = (
@@ -122,7 +115,7 @@ class divLayer(Layer):
         # linear computation
         self.W = self.W * self.Wtrimmer
         self.b = self.b * self.btrimmer
-        linOutput = tf.linalg.matmul(x, self.W) + self.b
+        linOutput = tf.matmul(x, self.W) + self.b
 
         # division computation
         numerators = linOutput[:, ::2]
@@ -191,3 +184,53 @@ class EnergyConsReg(Regularizer):
     def get_config(self):
         return {'Energy Function': self.energyFunc, 'energy': self.energy,
                 'Coefficient': self.coef}
+
+
+class DynamReg(Regularizer):
+    """
+    Dynamic Keras Regularizer
+
+    No change from Keras regularizer, except l1 and l2 are now tensorflow
+    variables which can be changed during the training schedule.
+    """
+
+    def __init__(self, l1=0., l2=0.):
+        self.l1 = K.variable(l1, name='weightRegL1', dtype=tf.float32)
+        self.l2 = K.variable(l2, name='weightRegL2', dtype=tf.float32)
+        self.uses_learning_phase = True
+        self.p = None
+
+    def __call__(self, x):
+        regularization = 0.
+        if self.l1 != 0:
+            regularization += tf.reduce_sum(self.l1 * tf.abs(x))
+        if self.l2 != 0:
+            regularization += tf.reduce_sum(self.l2 * tf.square(x))
+        return regularization
+
+    def get_config(self):
+        return {'l1': self.l1, 'l2': self.l2}
+
+
+class ConstantL0(Constraint):
+    """
+    Constant L0 Norm Keras Constraint
+
+    # Arguments
+        toZero: boolean tensor with same shape as the weights of the layer the
+            constraint is being applied to. Should contain "true" in all
+            positions where weight elements are less than the normThreshold
+            (and thus where weight elements should be set to zero to preserve
+            L0 norm)
+    """
+
+    def __init__(self, toZero):
+        self.toZero = K.variable(toZero, name='toZero', dtype=tf.bool)
+
+    def __call__(self, w):
+        return tf.where(self.toZero, tf.zeros_like(w), w)
+        # ^^replaces weights matrix entries with original value if greater than
+        # threshold, zero otherwise
+
+    def get_config(self):
+        return {'toZero': self.toZero}
