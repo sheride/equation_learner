@@ -14,51 +14,73 @@ import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.regularizers import Regularizer
-from tensorflow.keras.initializers import Zeros
+from tensorflow.keras.initializers import Zeros, RandomNormal
 from tensorflow.keras.constraints import Constraint
 
 
-class eqlLayer(Layer):
-    """
-    WORK IN PROGRESS: COMBINED LINEAR/NONLINEAR LAYERS
-    """
-
-    def __init__(self, nodeInfo, hypSet, unaryFunc, kernel_init,
-                 bias_init=Zeros, regularization=0., **kwargs):
-        self.nodeInfo = nodeInfo
-        self.hypSet = hypSet
-        self.unaryFunc = unaryFunc
-        self.kernel_init = kernel_init
-        self.bias_init = bias_init
+class Connected(Layer):
+    def __init__(self, outputShape, kernel_initializer=RandomNormal,
+                 bias_initializer=Zeros, regularization=0., **kwargs):
+        self.outputShape = outputShape
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
         self.regularization = tf.Variable(regularization,
                                           name='regularization',
                                           trainable=False, dtype=tf.float32)
+        super(Connected, self).__init__(**kwargs)
 
-        super(eqlLayer, self).__init__(**kwargs)
+    def Wconstraint(self, w):
+        return w * self.Wtrimmer
 
-    def build(self, input_shape):
-        u, v = self.nodeInfo
+    def bconstraint(self, b):
+        return b * self.btrimmer
+
+    def build(self, inputShape):
         self.W = self.add_weight(name='kernel',
-                                 shape=(int(input_shape[1]), u + 2 * v),
-                                 initializer=self.kernel_init,
+                                 shape=(int(inputShape[1]), self.outputShape),
+                                 initializer=self.kernel_initializer,
+                                 constraint=self.Wconstraint,
                                  trainable=True)
         self.Wtrimmer = tf.Variable(tf.ones_like(self.W), name='Wtrimmer',
                                     trainable=False)
         self.b = self.add_weight(name='bias',
-                                 shape=(u + 2 * v, ),
-                                 initializer=self.bias_init,
+                                 shape=(self.outputShape),
+                                 initializer=self.bias_initializer,
+                                 constraint=self.bconstraint,
                                  trainable=True)
-        self.btrimmer = tf.Variable(tf.ones_like(self.b), name='Wtrimmer',
+        self.btrimmer = tf.Variable(tf.ones_like(self.b), name='btrimmer',
                                     trainable=False)
-        super(eqlLayer, self).build(input_shape)
+        super(Connected, self).build(inputShape)
 
     def call(self, x):
         # linear computation
-        self.W = self.W * self.Wtrimmer  # for L0 norm conservation
-        self.b = self.b * self.btrimmer
-        linOutput = tf.matmul(x, self.W) + self.b
+        output = tf.matmul(x, self.W) + self.b
 
-        # nonlinear computation
+        # regularization
+        regularizationLoss = self.regularization * (
+                tf.reduce_sum(tf.abs(self.W)) + tf.reduce_sum(tf.abs(self.b)))
+        self.add_loss(regularizationLoss)
+
+        return output
+
+
+class EqlLayer(Connected):
+    """
+    WORK IN PROGRESS: COMBINED LINEAR/NONLINEAR LAYERS
+    """
+
+    def __init__(self, nodeInfo, hypSet, unaryFunc, **kwargs):
+        self.nodeInfo = nodeInfo
+        self.hypSet = hypSet
+        self.unaryFunc = unaryFunc
+        super(EqlLayer, self).__init__(nodeInfo[0] + 2 * nodeInfo[1], **kwargs)
+
+    def build(self, inputShape):
+        super(EqlLayer, self).build(inputShape)
+
+    def call(self, x):
+        linOutput = super(EqlLayer, self).call(x)
+
         u, v = self.nodeInfo
         output = [self.hypSet[self.unaryFunc[i]](linOutput[:, i:i+1])
                   for i in range(u)]
@@ -66,58 +88,30 @@ class eqlLayer(Layer):
                        for i in range(u, u+2*v, 2)])
         output = tf.concat(output, axis=1)
 
-        # regularization
-        regularizationLoss = (
-                tf.reduce_sum(self.regularization * tf.abs(self.W))
-                + tf.reduce_sum(self.regularization * tf.abs(self.b)))
-        self.add_loss(regularizationLoss)
-
         return output
 
-    def compute_output_shape(self, input_shape):
-        return (input_shape[0], self.nodeInfo[0] + self.nodeInfo[1])
+    def compute_output_shape(self, inputShape):
+        return (inputShape[0], self.nodeInfo[0] + self.nodeInfo[1])
 
 
-class divLayer(Layer):
+class DivLayer(Connected):
     """
     WORK IN PROGRESS: COMBINED LINEAR/DIVISION LAYERS
     """
 
-    def __init__(self, outShape, kernel_init, threshold=0.001,
-                 regularization=0., bias_init=Zeros, loss=None, **kwargs):
-        self.outShape = outShape
-        self.kernel_init = kernel_init
+    def __init__(self, outputShape, threshold=0.001, loss=None, **kwargs):
+        self.outputShape = outputShape
         self.threshold = tf.Variable(threshold, name='threshold',
                                      trainable=False)
-        self.regularization = tf.Variable(regularization,
-                                          name='regularization',
-                                          trainable=False, dtype=tf.float32)
-        self.bias_init = bias_init
         self.loss = loss
-        super(divLayer, self).__init__(**kwargs)
+        super(DivLayer, self).__init__(outputShape*2, **kwargs)
 
-    def build(self, input_shape):
-        self.W = self.add_weight(name='kernel',
-                                 shape=(int(input_shape[1]), self.outShape*2),
-                                 initializer=self.kernel_init,
-                                 trainable=True)
-        self.Wtrimmer = tf.Variable(tf.ones_like(self.W), name='Wtrimmer',
-                                    trainable=False)
-        self.b = self.add_weight(name='bias',
-                                 shape=(self.outShape * 2, ),
-                                 initializer=self.bias_init,
-                                 trainable=True)
-        self.btrimmer = tf.Variable(tf.ones_like(self.b), name='btrimmer',
-                                    trainable=False)
-        super(divLayer, self).build(input_shape)
+    def build(self, inputShape):
+        super(DivLayer, self).build(inputShape)
 
     def call(self, x):
-        # linear computation
-        self.W = self.W * self.Wtrimmer
-        self.b = self.b * self.btrimmer
-        linOutput = tf.matmul(x, self.W) + self.b
+        linOutput = super(DivLayer, self).call(x)
 
-        # division computation
         numerators = linOutput[:, ::2]
         denominators = linOutput[:, 1::2]
         # following three lines adapted from
@@ -132,20 +126,14 @@ class divLayer(Layer):
                            tf.zeros_like(denominators)))
         self.add_loss(denominatorLoss)
 
-        # regularization
-        regularizationLoss = (
-                tf.reduce_sum(self.regularization * tf.abs(self.W))
-                + tf.reduce_sum(self.regularization * tf.abs(self.b)))
-        self.add_loss(regularizationLoss)
-
         # passed custom loss
         if self.loss is not None:
             self.add_loss(self.loss(output))
 
         return output
 
-    def compute_output_shape(self, input_shape):
-        return (input_shape[0], self.outShape)
+    def compute_output_shape(self, inputShape):
+        return (inputShape[0], self.outputShape)
 
 
 class EnergyConsReg(Regularizer):

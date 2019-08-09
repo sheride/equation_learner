@@ -19,7 +19,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import LambdaCallback
 
-from .keras_classes import eqlLayer, divLayer, DynamReg, ConstantL0
+from .keras_classes import EqlLayer, DivLayer, Connected, DynamReg, ConstantL0
 
 
 
@@ -195,7 +195,6 @@ class EQL:
                 [j % len(hypothesisSet[0])
                     for j in range(self.nonlinearInfo[i][0])]
                 for i in range(numLayers-1)]
-        self.model = None
 
         with tf.name_scope(self.name) as scope:
             self.layers.append(Input((self.inputSize,)))
@@ -206,31 +205,25 @@ class EQL:
                 out = u + 2 * v
                 stddev = np.sqrt(1 / (inp * out))
                 randNorm = RandomNormal(0, stddev=stddev)
-                self.layers.append(eqlLayer(self.nonlinearInfo[i],
+                self.layers.append(EqlLayer(self.nonlinearInfo[i],
                                             self.hypothesisSet[0],
                                             self.unaryFunctions[i],
-                                            kernel_init=randNorm,
+                                            kernel_initializer=randNorm,
                                             )(self.layers[-1]))
                 inp = u + v
 
             stddev = np.sqrt(1 / (self.outputSize * inp))
             randNorm = RandomNormal(0, stddev=stddev)
-            wZeros = tf.fill((inp, self.outputSize), False)
-            bZeros = tf.fill((self.outputSize,), False)
-            self.layers.append(Dense(self.outputSize,
-                                     kernel_initializer=randNorm,
-                                     kernel_regularizer=DynamReg(0),
-                                     bias_regularizer=DynamReg(0),
-                                     kernel_constraint=ConstantL0(wZeros),
-                                     bias_constraint=ConstantL0(bZeros),
-                                     )(self.layers[numKerLay-2]))
+            self.layers.append(Connected(self.outputSize,
+                                         kernel_initializer=randNorm
+                                         )(self.layers[-1]))
 
             # Optimizer
             optimizer = Adam(lr=self.learningRate)
 
             # Model
             self.model = Model(inputs=self.layers[0],
-                               outputs=self.layers[self.numLayers*2-1])
+                               outputs=self.layers[-1])
 
             # Compilation
             self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
@@ -300,7 +293,7 @@ class EQL:
         """
 
         # PHASE 1: NO REGULARIZATION (T/4)
-        for i in range(1, self.numLayers):
+        for i in range(1, self.numLayers+1):
             K.set_value(self.model.layers[i].regularization, 0.)
             K.set_value(self.model.layers[i].Wtrimmer,
                         np.ones(self.model.layers[i].W.shape))
@@ -310,28 +303,19 @@ class EQL:
                        batch_size=batchSize, verbose=verbose)
 
         # PHASE 2: REGULARIZATION (7T/10)
-        # updating weight, bias regularization
-        for i in range(1, self.numLayers):
+        for i in range(1, self.numLayers+1):
             K.set_value(self.model.layers[i].regularization, reg)
-        K.set_value(self.model.layers[-1].kernel_regularizer.l1,
-                    reg)
-        K.set_value(self.model.layers[-1].bias_regularizer.l1,
-                    reg)
         self.model.fit(predictors, labels, epochs=int(numEpoch*(7/10)),
                        batch_size=batchSize, verbose=verbose)
 
         # PHASE 3: NO REGULARIZATION, L0 NORM PRESERVATION (T/20)
-        # updating weight, bias regularization
-        for i in range(1, self.numLayers):
+        for i in range(1, self.numLayers+1):
+            W, b = self.model.layers[i].get_weights()[:2]
             K.set_value(self.model.layers[i].regularization, 0.)
-        K.set_value(self.model.layers[-1].kernel_regularizer.l1, 0)
-        K.set_value(self.model.layers[-1].bias_regularizer.l1, 0)
-        weight, bias = self.model.layers[-1].get_weights()
-        K.set_value(self.model.layers[-1].kernel_constraint.toZero,
-                    np.less(np.abs(weight),
-                            np.full(weight.shape, threshold)))
-        K.set_value(self.model.layers[-1].bias_constraint.toZero,
-                    np.less(np.abs(bias), np.full(bias.shape, threshold)))
+            K.set_value(self.model.layers[i].Wtrimmer,
+                        (W > threshold).astype(float))
+            K.set_value(self.model.layers[i].btrimmer,
+                        (b > threshold).astype(float))
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
                        batch_size=batchSize, verbose=verbose)
 
@@ -542,7 +526,6 @@ class EQLDIV:
         self.learningRate = learningRate
         self.divThreshold = divThreshold
         self.name = name
-        self.pipeline = None
         self.unaryFunctions = [
                 [j % len(hypothesisSet[0])
                  for j in range(self.nonlinearInfo[i][0])]
@@ -557,18 +540,18 @@ class EQLDIV:
                 out = u + 2 * v
                 stddev = np.sqrt(1 / (inp * out))
                 randNorm = RandomNormal(0, stddev=stddev)
-                self.layers.append(eqlLayer(self.nonlinearInfo[i],
+                self.layers.append(EqlLayer(self.nonlinearInfo[i],
                                             self.hypothesisSet[0],
                                             self.unaryFunctions[i],
-                                            kernel_init=randNorm,
+                                            kernel_initializer=randNorm,
                                             )(self.layers[-1]))
                 inp = u + v
 
             stddev = np.sqrt(1 / (self.outputSize * 2 * inp))
             randNorm = RandomNormal(0, stddev=stddev)
-            self.layers.append(divLayer(self.outputSize,
+            self.layers.append(DivLayer(self.outputSize,
                                         threshold=self.divThreshold,
-                                        kernel_init=randNorm,
+                                        kernel_initializer=randNorm,
                                         )(self.layers[-1]))
 
             # Optimizer
