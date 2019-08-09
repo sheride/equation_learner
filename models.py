@@ -22,7 +22,6 @@ from tensorflow.keras.callbacks import LambdaCallback
 from .keras_classes import EqlLayer, DivLayer, Connected, DynamReg, ConstantL0
 
 
-
 def getNonlinearInfo(numHiddenLayers, numBinary, unaryPerBinary):
     """
     Generates a 2D list to be used as a nonlinearInfo argument in building an
@@ -177,9 +176,8 @@ class EQL:
             https://arxiv.org/abs/1610.02995)
     """
 
-    def __init__(self, inputSize, outputSize, numLayers=3, hypothesisSet=None,
-                 nonlinearInfo=None, learningRate=0.01, name='EQL'):
-
+    def __init__(self, inputSize, outputSize, numLayers=4, hypothesisSet=None,
+                 nonlinearInfo=None, name='EQL'):
         self.inputSize = inputSize
         self.outputSize = outputSize
         self.numLayers = numLayers
@@ -189,88 +187,45 @@ class EQL:
                 [sympy.Id, sympy.sin, sympy.cos, sympy.Function("sigm")]]
         self.nonlinearInfo = nonlinearInfo or getNonlinearInfo(
                 self.numLayers-1, [4], 4)
-        self.learningRate = learningRate
         self.name = name
         self.unaryFunctions = [
-                [j % len(hypothesisSet[0])
+                [j % len(self.hypothesisSet[0])
                     for j in range(self.nonlinearInfo[i][0])]
                 for i in range(numLayers-1)]
 
-        with tf.name_scope(self.name) as scope:
-            self.layers.append(Input((self.inputSize,)))
-            inp = int(self.layers[-1].shape[1])
-
-            for i in range(self.numLayers - 1):
-                u, v = self.nonlinearInfo[i]
-                out = u + 2 * v
-                stddev = np.sqrt(1 / (inp * out))
-                randNorm = RandomNormal(0, stddev=stddev)
-                self.layers.append(EqlLayer(self.nonlinearInfo[i],
-                                            self.hypothesisSet[0],
-                                            self.unaryFunctions[i],
-                                            kernel_initializer=randNorm,
-                                            )(self.layers[-1]))
-                inp = u + v
-
-            stddev = np.sqrt(1 / (self.outputSize * inp))
-            randNorm = RandomNormal(0, stddev=stddev)
-            self.layers.append(Connected(self.outputSize,
-                                         kernel_initializer=randNorm
-                                         )(self.layers[-1]))
-
-            # Optimizer
-            optimizer = Adam(lr=self.learningRate)
-
-            # Model
-            self.model = Model(inputs=self.layers[0],
-                               outputs=self.layers[-1])
-
-            # Compilation
-            self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
-
-    def build(self, learningRate=0.01, optimizer=Adam, loss='mse',
+    def build(self, learningRate=0.001, method=Adam, loss='mse',
               metrics=[rmse]):
         """WIP, building an EQL model from parameters"""
 
         self.layers.append(Input((self.inputSize,)))
+        inp = int(self.layers[-1].shape[1])
 
-        for i in range(1, self.numLayers * 2 - 2, 2):
-            index = int((i-1)/2)
-            u, v = self.nonlinearInfo[index]
-            inp = self.layers[-1].shape[1]
+        for i in range(self.numLayers - 1):
+            u, v = self.nonlinearInfo[i]
             out = u + 2 * v
             stddev = np.sqrt(1 / (inp * out))
             randNorm = RandomNormal(0, stddev=stddev)
-            wZeros = tf.fill((inp, out), False)
-            bZeros = tf.fill((out,), False)
+            self.layers.append(EqlLayer(self.nonlinearInfo[i],
+                                        self.hypothesisSet[0],
+                                        self.unaryFunctions[i],
+                                        kernel_initializer=randNorm,
+                                        )(self.layers[-1]))
+            inp = u + v
 
-            self.layers.append(Dense(out,
-                                     kernel_initializer=randNorm,
-                                     kernel_regularizer=DynamReg(0),
-                                     bias_regularizer=DynamReg(0),
-                                     kernel_constraint=ConstantL0(wZeros),
-                                     bias_constraint=ConstantL0(bZeros)
-                                     )(self.layers[-1]))
-            self.layers.append(Nonlin(self.nonlinearInfo[index],
-                                      self.hypothesisSet[0],
-                                      self.unaryFunctions[index],
-                                      )(self.layers[-1]))
-
-        inp = int(self.layers[-1].shape[1])
         stddev = np.sqrt(1 / (self.outputSize * inp))
         randNorm = RandomNormal(0, stddev=stddev)
-        wZeros = tf.fill((inp, self.outputSize), False)
-        bZeros = tf.fill((self.outputSize,), False)
+        self.layers.append(Connected(self.outputSize,
+                                     kernel_initializer=randNorm
+                                     )(self.layers[-1]))
 
-        self.layers.append(Dense(self.outputSize,
-                                 kernel_initializer=randNorm,
-                                 kernel_regularizer=DynamReg(0),
-                                 bias_regularizer=DynamReg(0),
-                                 kernel_constraint=ConstantL0(wZeros),
-                                 bias_constraint=ConstantL0(bZeros),
-                                 )(self.layers[-1]))
+        # Optimizer
+        optimizer = method(lr=learningRate)
 
-        self.model = Model(inputs=self.layers[0], outputs=self.layers[-1])
+        # Model
+        self.model = Model(inputs=self.layers[0],
+                           outputs=self.layers[-1])
+
+        # Compilation
         self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
     def fit(self, predictors, labels, numEpoch, reg=10**-3, batchSize=20,
@@ -510,9 +465,7 @@ class EQLDIV:
     """
 
     def __init__(self, inputSize, outputSize, numLayers=3, hypothesisSet=None,
-                 nonlinearInfo=None, energyInfo=None, learningRate=0.01,
-                 divThreshold=0.001, name='EQLDIV'):
-
+                 nonlinearInfo=None, energyInfo=None, name='EQLDIV'):
         self.inputSize = inputSize
         self.outputSize = outputSize
         self.numLayers = numLayers
@@ -523,46 +476,45 @@ class EQLDIV:
         self.nonlinearInfo = nonlinearInfo or getNonlinearInfo(
                 self.numLayers-1, [4], 4)
         self.energyInfo = energyInfo
-        self.learningRate = learningRate
-        self.divThreshold = divThreshold
         self.name = name
         self.unaryFunctions = [
-                [j % len(hypothesisSet[0])
+                [j % len(self.hypothesisSet[0])
                  for j in range(self.nonlinearInfo[i][0])]
                 for i in range(self.numLayers-1)]
 
-        with tf.name_scope(self.name) as scope:
-            self.layers.append(Input((self.inputSize,)))
-            inp = int(self.layers[-1].shape[1])
+    def build(self, divThreshold=0.001, learningRate=0.001, method=Adam,
+              loss='mse', metrics=[rmse], energyInfo=None):
+        self.layers.append(Input((self.inputSize,)))
+        inp = int(self.layers[-1].shape[1])
 
-            for i in range(self.numLayers - 1):
-                u, v = self.nonlinearInfo[i]
-                out = u + 2 * v
-                stddev = np.sqrt(1 / (inp * out))
-                randNorm = RandomNormal(0, stddev=stddev)
-                self.layers.append(EqlLayer(self.nonlinearInfo[i],
-                                            self.hypothesisSet[0],
-                                            self.unaryFunctions[i],
-                                            kernel_initializer=randNorm,
-                                            )(self.layers[-1]))
-                inp = u + v
-
-            stddev = np.sqrt(1 / (self.outputSize * 2 * inp))
+        for i in range(self.numLayers - 1):
+            u, v = self.nonlinearInfo[i]
+            out = u + 2 * v
+            stddev = np.sqrt(1 / (inp * out))
             randNorm = RandomNormal(0, stddev=stddev)
-            self.layers.append(DivLayer(self.outputSize,
-                                        threshold=self.divThreshold,
+            self.layers.append(EqlLayer(self.nonlinearInfo[i],
+                                        self.hypothesisSet[0],
+                                        self.unaryFunctions[i],
                                         kernel_initializer=randNorm,
                                         )(self.layers[-1]))
+            inp = u + v
 
-            # Optimizer
-            optimizer = Adam(lr=self.learningRate)
+        stddev = np.sqrt(1 / (self.outputSize * 2 * inp))
+        randNorm = RandomNormal(0, stddev=stddev)
+        self.layers.append(DivLayer(self.outputSize,
+                                    threshold=divThreshold,
+                                    kernel_initializer=randNorm,
+                                    )(self.layers[-1]))
 
-            # Model
-            self.model = Model(inputs=self.layers[0],
-                               outputs=self.layers[-1])
+        # Optimizer
+        optimizer = method(lr=learningRate)
 
-            # Compilation
-            self.model.compile(optimizer=optimizer, loss='mse', metrics=[rmse])
+        # Model
+        self.model = Model(inputs=self.layers[0],
+                           outputs=self.layers[-1])
+
+        # Compilation
+        self.model.compile(optimizer=optimizer, loss=loss, metrics=metrics)
 
     def fit(self, predictors, labels, numEpoch, regStrength=10**-3,
             batchSize=20, normThreshold=0.001, verbose=0):
