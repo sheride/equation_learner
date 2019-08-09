@@ -15,11 +15,10 @@ import tensorflow as tf
 from tensorflow.keras import Input, Model
 import tensorflow.keras.backend as K
 from tensorflow.keras.initializers import RandomNormal
-from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import LambdaCallback
 
-from .keras_classes import EqlLayer, DivLayer, Connected, DynamReg, ConstantL0
+from .keras_classes import EqlLayer, DivLayer, Connected
 
 
 def getNonlinearInfo(numHiddenLayers, numBinary, unaryPerBinary):

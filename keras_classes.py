@@ -15,7 +15,6 @@ import tensorflow.keras.backend as K
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.regularizers import Regularizer
 from tensorflow.keras.initializers import Zeros, RandomNormal
-from tensorflow.keras.constraints import Constraint
 
 
 class Connected(Layer):
@@ -53,7 +52,6 @@ class Connected(Layer):
         super(Connected, self).build(inputShape)
 
     def call(self, x):
-        # linear computation
         output = tf.matmul(x, self.W) + self.b
 
         # regularization
@@ -172,53 +170,3 @@ class EnergyConsReg(Regularizer):
     def get_config(self):
         return {'Energy Function': self.energyFunc, 'energy': self.energy,
                 'Coefficient': self.coef}
-
-
-class DynamReg(Regularizer):
-    """
-    Dynamic Keras Regularizer
-
-    No change from Keras regularizer, except l1 and l2 are now tensorflow
-    variables which can be changed during the training schedule.
-    """
-
-    def __init__(self, l1=0., l2=0.):
-        self.l1 = K.variable(l1, name='weightRegL1', dtype=tf.float32)
-        self.l2 = K.variable(l2, name='weightRegL2', dtype=tf.float32)
-        self.uses_learning_phase = True
-        self.p = None
-
-    def __call__(self, x):
-        regularization = 0.
-        if self.l1 != 0:
-            regularization += tf.reduce_sum(self.l1 * tf.abs(x))
-        if self.l2 != 0:
-            regularization += tf.reduce_sum(self.l2 * tf.square(x))
-        return regularization
-
-    def get_config(self):
-        return {'l1': self.l1, 'l2': self.l2}
-
-
-class ConstantL0(Constraint):
-    """
-    Constant L0 Norm Keras Constraint
-
-    # Arguments
-        toZero: boolean tensor with same shape as the weights of the layer the
-            constraint is being applied to. Should contain "true" in all
-            positions where weight elements are less than the normThreshold
-            (and thus where weight elements should be set to zero to preserve
-            L0 norm)
-    """
-
-    def __init__(self, toZero):
-        self.toZero = K.variable(toZero, name='toZero', dtype=tf.bool)
-
-    def __call__(self, w):
-        return tf.where(self.toZero, tf.zeros_like(w), w)
-        # ^^replaces weights matrix entries with original value if greater than
-        # threshold, zero otherwise
-
-    def get_config(self):
-        return {'toZero': self.toZero}
