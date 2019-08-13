@@ -267,9 +267,9 @@ class EQL:
             W, b = self.model.layers[i].get_weights()[:2]
             K.set_value(self.model.layers[i].regularization, 0.)
             K.set_value(self.model.layers[i].Wtrimmer,
-                        (W > threshold).astype(float))
+                        (np.abs(W) > threshold).astype(float))
             K.set_value(self.model.layers[i].btrimmer,
-                        (b > threshold).astype(float))
+                        (np.abs(b) > threshold).astype(float))
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
                        batch_size=batchSize, verbose=verbose)
 
@@ -286,12 +286,11 @@ class EQL:
         bias = []
 
         # pulls/separates weights and biases from a model
-        for i in range(0, self.numLayers):
+        for i in range(1, self.numLayers+1):
             weights.append(self.model.layers[i].get_weights()[0])
             bias.append(self.model.layers[i].get_weights()[1])
 
-        weights.append(self.model.layers[-1].get_weights()[i])
-        bias.append(self.model.layers[-1].get_weights()[i+1])
+        print(np.array(weights).shape, np.array(self.nonlinearInfo).shape)
 
         # creates generic input vector
         X = make_symbolic(1, self.inputSize)
@@ -486,24 +485,26 @@ class EQLDIV:
         self.layers.append(Input((self.inputSize,)))
         inp = int(self.layers[-1].shape[1])
 
-        for i in range(self.numLayers - 1):
-            u, v = self.nonlinearInfo[i]
-            out = u + 2 * v
-            stddev = np.sqrt(1 / (inp * out))
-            randNorm = RandomNormal(0, stddev=stddev)
-            self.layers.append(EqlLayer(self.nonlinearInfo[i],
-                                        self.hypothesisSet[0],
-                                        self.unaryFunctions[i],
-                                        kernel_initializer=randNorm,
-                                        )(self.layers[-1]))
-            inp = u + v
-
-        stddev = np.sqrt(1 / (self.outputSize * 2 * inp))
-        randNorm = RandomNormal(0, stddev=stddev)
-        self.layers.append(DivLayer(self.outputSize,
-                                    threshold=divThreshold,
-                                    kernel_initializer=randNorm,
-                                    )(self.layers[-1]))
+        for i in range(self.numLayers):
+            with tf.variable_scope('layer' + str(i+1)) as scope:
+                if (i == self.numLayers - 1):
+                    stddev = np.sqrt(1 / (self.outputSize * 2 * inp))
+                    randNorm = RandomNormal(0, stddev=stddev)
+                    self.layers.append(DivLayer(self.outputSize,
+                                                threshold=divThreshold,
+                                                kernel_initializer=randNorm,
+                                                )(self.layers[-1]))
+                    break
+                u, v = self.nonlinearInfo[i] or None
+                out = u + 2 * v or None
+                stddev = np.sqrt(1 / (inp * out))
+                randNorm = RandomNormal(0, stddev=stddev)
+                self.layers.append(EqlLayer(self.nonlinearInfo[i],
+                                            self.hypothesisSet[0],
+                                            self.unaryFunctions[i],
+                                            kernel_initializer=randNorm,
+                                            )(self.layers[-1]))
+                inp = u + v
 
         # Optimizer
         optimizer = method(lr=learningRate)
@@ -581,9 +582,9 @@ class EQLDIV:
             W, b = self.model.layers[i].get_weights()[:2]
             K.set_value(self.model.layers[i].regularization, 0.)
             K.set_value(self.model.layers[i].Wtrimmer,
-                        (W > normThreshold).astype(float))
+                        (np.abs(W) > normThreshold).astype(float))
             K.set_value(self.model.layers[i].btrimmer,
-                        (b > normThreshold).astype(float))
+                        (np.abs(b) > normThreshold).astype(float))
         dynamicDivisionThreshold = LambdaCallback(
                 on_epoch_begin=phase3DivisionThresholdSchedule)
         self.model.fit(predictors, labels, epochs=int(numEpoch*(1/20)),
