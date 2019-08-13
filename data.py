@@ -62,7 +62,13 @@ def pipeline(model, x, rescale=True, stand=True, norm=True):
 def pendulumDerivatives(x):
     """Returns time derivative of pendulum phase space vector (divided by g)"""
     g = 9.8
-    return [x[1]/g, -np.sin(x[0])]
+    return [x[1], -g*np.sin(x[0])]
+
+
+def pendulumDerivativesSolver(t, x):
+    """Returns time derivative of pendulum phase space vector (divided by g)"""
+    g = 9.8
+    return [x[1], -g*np.sin(x[0])]
 
 
 def genPendulumDiffEqData(w, n):
@@ -102,6 +108,43 @@ def genPendulumDiffEqData(w, n):
                            extrapolation_far_predictors,
                            extrapolation_far_labels])
     np.save('PendulumDiffEq_' + str(w) + '_' + str(n), all_data,
+            allow_pickle=False)
+
+
+def genPendulumDiffEqTrajectories(n):
+    smallAngle = [np.pi/8, 0]
+    mediumAngle = [np.pi/2, 0]
+    largeAngle = [np.pi, 0.1]
+
+    step = 0.05
+    t_eval = np.linspace(0, n * step, n)
+
+    smallAngleSol = slv(pendulumDerivativesSolver, [0, len(t_eval) * step],
+                        smallAngle, t_eval=t_eval)
+    smallAnglePredictors = np.transpose(smallAngleSol.y)
+    smallAngleLabels = np.transpose(pendulumDerivatives(smallAngleSol.y))
+
+    mediumAngleSol = slv(pendulumDerivativesSolver, [0, len(t_eval) * step],
+                         mediumAngle, t_eval=t_eval)
+    mediumAnglePredictors = np.transpose(mediumAngleSol.y)
+    mediumAngleLabels = np.transpose(pendulumDerivatives(mediumAngleSol.y))
+
+    largeAngleSol = slv(pendulumDerivativesSolver, [0, len(t_eval) * step],
+                        largeAngle, t_eval=t_eval)
+    largeAnglePredictors = np.transpose(largeAngleSol.y)
+    largeAngleLabels = np.transpose(pendulumDerivatives(largeAngleSol.y))
+
+    print(smallAnglePredictors.shape, smallAngleLabels.shape)
+
+    smallAngleData = [smallAnglePredictors, smallAngleLabels]
+    mediumAngleData = [mediumAnglePredictors, mediumAngleLabels]
+    largeAngleData = [largeAnglePredictors, largeAngleLabels]
+
+    np.save('PendulumDiffEqSmallTrajectory_' + str(n), smallAngleData,
+            allow_pickle=False)
+    np.save('PendulumDiffEqMediumTrajectory_' + str(n), mediumAngleData,
+            allow_pickle=False)
+    np.save('PendulumDiffEqLargeTrajectory_' + str(n), largeAngleData,
             allow_pickle=False)
 
 
@@ -157,9 +200,9 @@ def genDoublePendulumCoordinateData():
     firstInput = [np.pi/2, 0, np.pi/2, 0]
     secondInput = [np.pi/4, 0, np.pi/4, 0]
     firstOutput = slv(doublePendulumDerivativesSolver, [0, 40], firstInput,
-                      first_step=0.05, max_step=0.05)
+                      first_step=0.05, max_step=0.05, rtol=1e-10, atol=1e-10)
     secondOutput = slv(doublePendulumDerivativesSolver, [0, 40], secondInput,
-                       first_step=0.05, max_step=0.05)
+                       first_step=0.05, max_step=0.05, rtol=1e-10, atol=1e-10)
     interpolation_predictors = [
             [fixRadians(firstOutput.y[0][i]), fixRadians(firstOutput.y[2][i])]
             for i in range(len(firstOutput.y[0]))]
@@ -664,7 +707,8 @@ def genDoublePendulumTimeseries(E, n, c, step):
     sols = []
     for x in xs:
         sols.append(slv(doublePendulumDerivativesSolver,
-                        [0, len(t_eval) * step], x, t_eval=t_eval).y)
+                        [0, len(t_eval) * step], x, t_eval=t_eval,
+                        rtol=1e-10, atol=1e-10).y,)
 
     data = np.concatenate(tuple(sols), axis=1)
 
@@ -737,7 +781,7 @@ def genDoublePendulumTimeseriesRandom(E, n, c, step):
     """
 
     g = 9.8
-    t_eval = np.linspace(0, int((n * step)/(2*c)), int(n/(2*c)))
+    t_eval = np.linspace(0, int((n * step)/c), int(n/c))
     maxAngle = np.arccos(-E / (3*g))
     maxVel = np.sqrt((E + 3*g) / (5/2))
     xs = []
@@ -747,9 +791,8 @@ def genDoublePendulumTimeseriesRandom(E, n, c, step):
     sols = []
     for x in xs:
         sols.append(slv(doublePendulumDerivativesSolver,
-                        [0, len(t_eval) * step],
-                        x,
-                        t_eval=t_eval).y)
+                        [0, len(t_eval) * step], x, t_eval=t_eval, rtol=1e-10,
+                        atol=1e-10).y)
 
     data = np.concatenate(tuple(sols), axis=1)
 
