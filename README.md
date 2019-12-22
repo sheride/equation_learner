@@ -14,6 +14,7 @@ That being said, this repository can be used via a cloning to either your workin
 import equation_learner as eql
 
 my_eql_model = eql.models.EQLDIV(inputSize=3, outputSize=3, numLayers=3)
+my_eql_model.build()
 my_eql_model.fit(predictors, labels, numEpoch=1000)
 ```
 
