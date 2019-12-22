@@ -61,6 +61,9 @@ class Connected(Layer):
 
         return output
 
+    def compute_output_shape(self, inputShape):
+        return (inputShape[0], self.outputShape)
+
 
 class EqlLayer(Connected):
     """
@@ -115,7 +118,7 @@ class DivLayer(Connected):
         # following three lines adapted from
         # https://github.com/martius-lab/EQL_Tensorflow
         zeros = tf.cast(denominators > self.threshold, dtype=tf.float32)
-        denominatorsInverse = tf.reciprocal(tf.abs(denominators) + 1e-10)
+        denominatorsInverse = tf.math.reciprocal(tf.abs(denominators) + 1e-10)
         output = numerators * denominatorsInverse * zeros
 
         # negative denominator penalty

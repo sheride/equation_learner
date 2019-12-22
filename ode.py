@@ -8,7 +8,6 @@ Created on Thu Jul 11 11:50:40 2019
 
 import numpy as np
 from scipy.integrate import solve_ivp
-import pyvie
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
@@ -45,11 +44,12 @@ def odeSolve(models, odeFunction, initialCond, timeSpan, step):
 
     t_eval = [timeSpan[0] + i * step for i in
               range(int((timeSpan[1] - timeSpan[0])/step))]
-    actualSol = solve_ivp(odeFunction, timeSpan, initialCond, t_eval=t_eval)
+    actualSol = solve_ivp(odeFunction, timeSpan, initialCond, t_eval=t_eval,
+                          rtol=1e-10, atol=1e-10)
     modelsSol = [0 for i in range(len(models))]
     for i, _ in enumerate(models):
         modelsSol[i] = solve_ivp(models[i].odecompat, timeSpan, initialCond,
-                                 t_eval=t_eval)
+                                 t_eval=t_eval, rtol=1e-7, atol=1e-7)
     return [actualSol, modelsSol]
 
 
@@ -105,6 +105,7 @@ def dpdiffPlot(actualSol, modelSol, figsize=(10, 10), ymax=3,
                     actualSol.t[:-binSize],
                     np.convolve(diff[i], window(binSize), 'same')[:-binSize],
                     linewidth=10)
+            lines[i], = plt.plot(actualSol.t, diff[i], linewidth=10)
 
         lines = tuple(lines)
         plt.legend(lines, names, loc=2)

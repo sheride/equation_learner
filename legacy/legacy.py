@@ -16,7 +16,6 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.regularizers import Regularizer
 from tensorflow.keras.constraints import Constraint
 
-
 class Division(Layer):
     """
     EQL-Div Division Keras Layer (IMPROVED??)
@@ -154,18 +153,11 @@ class Nonlinear(Layer):
 
     def call(self, linOutput):
         u, v = self.nodeInfo
-        nonlinOutput = self.hypSet[self.unaryFunc[0]](linOutput[:, :1])
-        for i in range(1, u):
-            nonlinOutput = tf.concat(
-                    [nonlinOutput,
-                     self.hypSet[self.unaryFunc[i]](linOutput[:, i:i+1])],
-                    axis=1)
-
-        for i in range(u, u + 2 * v, 2):
-            nonlinOutput = tf.concat(
-                    [nonlinOutput,
-                     tf.multiply(linOutput[:, i:i+1], linOutput[:, i+1:i+2])],
-                    axis=1)
+        output = [self.hypSet[self.unaryFunc[i]](linOutput[:, i:i+1])
+                  for i in range(u)]
+        output.extend([linOutput[:, i:i+1] * linOutput[:, i+1:i+2]
+                       for i in range(u, u+2*v, 2)])
+        output = tf.concat(output, axis=1)
 
         return nonlinOutput
 

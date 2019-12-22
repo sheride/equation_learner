@@ -456,6 +456,11 @@ class EQLDIV:
         divThreshold: float, value which denominator must be greater than in
             order for division to occur (division returns 0 otherwise)
         name: TensorFlow scope name (for TensorBoard)
+        changeOfVariables: a list with length two containing (1) a python
+            function which can transform an arbitrarily large numpy array
+            training data set to a different set of variables and (2) the
+            number of components per data point in the transformed data that
+            the function in the first component outputs
 
     # References
         - [Learning Equations for Extrapolation and Control](
@@ -463,8 +468,9 @@ class EQLDIV:
     """
 
     def __init__(self, inputSize, outputSize, numLayers=3, hypothesisSet=None,
-                 nonlinearInfo=None, energyInfo=None, name='EQLDIV'):
-        self.inputSize = inputSize
+                 nonlinearInfo=None, energyInfo=None, changeOfVariables=None,
+                 name='EQLDIV'):
+        self.inputSize = changeOfVariables[1] or inputSize
         self.outputSize = outputSize
         self.numLayers = numLayers
         self.layers = []
@@ -474,6 +480,7 @@ class EQLDIV:
         self.nonlinearInfo = nonlinearInfo or getNonlinearInfo(
                 self.numLayers-1, [4], 4)
         self.energyInfo = energyInfo
+        self.changeOfVariables = changeOfVariables
         self.name = name
         self.unaryFunctions = [
                 [j % len(self.hypothesisSet[0])
@@ -486,25 +493,24 @@ class EQLDIV:
         inp = int(self.layers[-1].shape[1])
 
         for i in range(self.numLayers):
-            with tf.variable_scope('layer' + str(i+1)) as scope:
-                if (i == self.numLayers - 1):
-                    stddev = np.sqrt(1 / (self.outputSize * 2 * inp))
-                    randNorm = RandomNormal(0, stddev=stddev)
-                    self.layers.append(DivLayer(self.outputSize,
-                                                threshold=divThreshold,
-                                                kernel_initializer=randNorm,
-                                                )(self.layers[-1]))
-                    break
-                u, v = self.nonlinearInfo[i] or None
-                out = u + 2 * v or None
-                stddev = np.sqrt(1 / (inp * out))
+            if (i == self.numLayers - 1):
+                stddev = np.sqrt(1 / (self.outputSize * 2 * inp))
                 randNorm = RandomNormal(0, stddev=stddev)
-                self.layers.append(EqlLayer(self.nonlinearInfo[i],
-                                            self.hypothesisSet[0],
-                                            self.unaryFunctions[i],
+                self.layers.append(DivLayer(self.outputSize,
+                                            threshold=divThreshold,
                                             kernel_initializer=randNorm,
                                             )(self.layers[-1]))
-                inp = u + v
+                break
+            u, v = self.nonlinearInfo[i] or None
+            out = u + 2 * v or None
+            stddev = np.sqrt(1 / (inp * out))
+            randNorm = RandomNormal(0, stddev=stddev)
+            self.layers.append(EqlLayer(self.nonlinearInfo[i],
+                                        self.hypothesisSet[0],
+                                        self.unaryFunctions[i],
+                                        kernel_initializer=randNorm,
+                                        )(self.layers[-1]))
+            inp = u + v
 
         # Optimizer
         optimizer = method(lr=learningRate)
@@ -536,6 +542,8 @@ class EQLDIV:
             verbose: 0, 1, or 2, determines whether Keras is silent, prints a
                 progress bar, or prints a line every epoch.
         """
+        if self.changeOfVariables:
+            predictors = self.changeOfVariables[0](predictors)
 
         # Division threshold callbacks
         def phase1DivisionThresholdSchedule(epoch, logs):
@@ -746,24 +754,19 @@ class EQLDIV:
         return x
 
     def odecompat(self, t, x):
-        """Wrapper for Keras' predict function, solve_ivp compatible"""
+        """Wrapper for Keras' function, solve_ivp compatible"""
 
         # if statement is bad hack for experimentations with feature
         # engineering for double pendulum
-        if self.inputSize == 7:
-            if len(np.array(x).shape) == 2:
-                y = [x[0, 0] - x[0, 2], x[0, 1]**2, x[0, 3]**2]
-                x = np.append(x, y)
-            else:
-                y = [x[0] - x[2], x[1]**2, x[3]**2]
-                x = np.append(x, y)
+#        if self.inputSize == 7:
+#            if len(np.array(x).shape) == 2:
+#                y = [x[0, 0] - x[0, 2], x[0, 1]**2, x[0, 3]**2]
+#                x = np.append(x, y)
+#            else:
+#                y = [x[0] - x[2], x[1]**2, x[3]**2]
+#                x = np.append(x, y)
 
-        x = np.reshape(x, (1, -1))
-        if self.pipeline is not None:
-            for op in self.pipeline:
-                x = op.transform(x)
-
-        prediction = self.model.predict(x)
+        prediction = self.model.predict(np.reshape(x, (1, -1)))
         return prediction
 
     def printJacobian(self, x):

@@ -62,7 +62,7 @@ def pipeline(model, x, rescale=True, stand=True, norm=True):
 def pendulumDerivatives(x):
     """Returns time derivative of pendulum phase space vector (divided by g)"""
     g = 9.8
-    return [x[1], -g*np.sin(x[0])]
+    return [x[1]/g, -np.sin(x[0])]
 
 
 def pendulumDerivativesSolver(t, x):
@@ -153,20 +153,16 @@ def doublePendulumDerivativesSolver(t, x):
     Returns time derivative of double pendulum phase space vector, solve_ivp
     compatible
     """
-
     g = 9.8
-    return [x[1],
-            (-1 * (x[1]**2) * np.sin(x[0] - x[2]) * np.cos(x[0] - x[2])
-            + g * np.sin(x[2]) * np.cos(x[0] - x[2])
-            + -1 * (x[3]**2) * np.sin(x[0] - x[2])
-            + -1 * 2 * g * np.sin(x[0]))
-            / (2 - ((np.cos(x[0] - x[2]))**2)),
-            x[3],
-            ((x[3]**2) * np.sin(x[0] - x[2]) * np.cos(x[0] - x[2])
-            + g * 2 * np.sin(x[0]) * np.cos(x[0] - x[2])
-            + 2 * x[1]**2 * np.sin(x[0] - x[2])
-            + -1 * 2 * g * np.sin(x[2]))
-            / (2 - (np.cos(x[0] - x[2]))**2)]
+    t1, w1, t2, w2 = x
+    return [w1,
+            (-w1**2*np.sin(t1-t2)*np.cos(t1-t2) + g*np.sin(t2)*np.cos(t1-t2)
+            - w2**2*np.sin(t1-t2) - 2*g*np.sin(t1))
+            / (2 - np.cos(t1-t2)**2),
+            w2,
+            (w2**2*np.sin(t1-t2)*np.cos(t1-t2) + g*2*np.sin(t1)*np.cos(t1-t2)
+            + 2*w1**2*np.sin(t1-t2) - 2*g*np.sin(t2))
+            / (2 - np.cos(t1-t2)**2)]
 
 
 def doublePendulumCoordinate(x):
