@@ -1,6 +1,6 @@
 # equation-learner
 
-This is a reproduction of the EQL machine learning model and its variations [1] [2] using Keras and Tensorflow.
+This is a reproduction of the EQL machine learning model and its variations [1, 2] using Keras and Tensorflow.
 
 ![Imgur](https://i.imgur.com/HZXwfVI.png)
 

@@ -18,6 +18,23 @@ from tensorflow.keras.initializers import Zeros, RandomNormal
 
 
 class Connected(Layer):
+    """
+    General-purpose Keras connected layer
+
+    Parent class used by my implementations of both the normal EQL layers,
+    merely acts as a fully-connected neural network layer with functionality
+    for L2 (dynamic) regularization and L0 norm preservation (as discussed in
+    the original papers)
+
+    Arguments
+        outputShape: integer, number of values to be outputted by the layer
+        kernel_initializer: tensorflow variable initializer, defines how
+            weights are to be instantiated
+        bias_initializer: tensorflow variable initializer, defines how biases
+            are to be instantiated
+        regularization: coefficient of L2 regularization
+    """
+
     def __init__(self, outputShape, kernel_initializer=RandomNormal,
                  bias_initializer=Zeros, regularization=0., **kwargs):
         self.outputShape = outputShape
@@ -28,6 +45,7 @@ class Connected(Layer):
                                           trainable=False, dtype=tf.float32)
         super(Connected, self).__init__(**kwargs)
 
+    # L0 norm preservation for weights and biases, respectively
     def Wconstraint(self, w):
         return w * self.Wtrimmer
 
@@ -67,7 +85,22 @@ class Connected(Layer):
 
 class EqlLayer(Connected):
     """
-    WORK IN PROGRESS: COMBINED LINEAR/NONLINEAR LAYERS
+    EQL linear-nonlinear layer
+
+    Utilizes the Connected layer defined above and concatenates it with the
+    EQL non-linear layer (involving unary nonlinear functions and binary
+    product functions, as described in the original papers)
+
+    Arguments
+        nodeInfo: two-tuple containing number of unary and binary functions
+            in the layer, respectively
+        hypSet: list of N unary tensorflow-compatible functions constituting
+            the hypothesis set of unary non-linear functions for this layer (as
+            described in the original papers)
+        unaryFunc: list of length nodeInfo[0] (number of unary functions) where
+            each element is a number between 1 and N (inclusive). The ith
+            element indicates which hypSet function is to be used for the ith
+            unary function in the layer
     """
 
     def __init__(self, nodeInfo, hypSet, unaryFunc, **kwargs):
@@ -97,7 +130,17 @@ class EqlLayer(Connected):
 
 class DivLayer(Connected):
     """
-    WORK IN PROGRESS: COMBINED LINEAR/DIVISION LAYERS
+    EQL division layer
+
+    Utilizes the Connected layer defined above and concatenates it with the
+    EQL-div division layer which concludes a given model (as described in the
+    original papers)
+
+    Arguments
+        outputShape: integer, number of values to be outputted by the layer
+        threshold: individual outputs of this layer are set to 0 when that
+            output's associated denominator is below this value (float)
+        loss: custom loss function that can be added to layer
     """
 
     def __init__(self, outputShape, threshold=0.001, loss=None, **kwargs):

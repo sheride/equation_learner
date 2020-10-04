@@ -194,7 +194,17 @@ class EQL:
 
     def build(self, learningRate=0.001, method=Adam, loss='mse',
               metrics=[rmse]):
-        """WIP, building an EQL model from parameters"""
+        """
+        __init__ defines all of the variables this model depends upon, this
+        function actual creates the tensorflow Model variable
+
+        # Arguments
+            learningRate: model learning rate
+            method: model learning method
+            loss: loss function used to penalize model based on accuracy
+            metrics: metric used for gauging model performance when evaluated
+                on data points post-training
+        """
 
         self.layers.append(Input((self.inputSize,)))
         inp = int(self.layers[-1].shape[1])
@@ -488,7 +498,19 @@ class EQLDIV:
                 for i in range(self.numLayers-1)]
 
     def build(self, divThreshold=0.001, learningRate=0.001, method=Adam,
-              loss='mse', metrics=[rmse], energyInfo=None):
+              loss='mse', metrics=[rmse]):
+        """
+        __init__ defines all of the variables this model depends upon, this
+        function actual creates the tensorflow Model variable
+
+        # Arguments
+            learningRate: model learning rate
+            method: model learning method
+            loss: loss function used to penalize model based on accuracy
+            metrics: metric used for gauging model performance when evaluated
+                on data points post-training
+        """
+
         self.layers.append(Input((self.inputSize,)))
         inp = int(self.layers[-1].shape[1])
 
